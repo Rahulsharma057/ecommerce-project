@@ -97,42 +97,44 @@ exports.login = async (req, res) => {
 
 
 exports.forgotPassword = async (req, res) => {
-  const { email, phone } = req.body;
+  try {
+    const { email, phone } = req.body;
 
-  const user = await User.findOne({
-    $or: [
-      { email },
-      { phone }
-    ],
-  });
+    console.log("BODY:", req.body);
 
-  
+    const query = {};
+    if (email) query.email = email;
+    if (phone) query.phone = phone;
 
-  if (!user) {
-    return res.status(404).json({
-      message: "User not found",
+    const user = await User.findOne(query);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    user.otp = otp;
+    user.otpExpire = Date.now() + 5 * 60 * 1000;
+
+    await user.save();
+
+    if (user.email) {
+      await sendOtpEmail(user.email, otp);
+    }
+
+    res.json({
+      message: "OTP sent successfully",
     });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  const otp = Math.floor(
-    100000 + Math.random() * 900000
-  ).toString();
-
-  user.otp = otp;
-  user.otpExpire =
-    Date.now() + 5 * 60 * 1000;
-
-  await user.save();
-
-  console.log("OTP:", otp);
-console.log("OTP SENT:", otp);
-console.log("USER IN DB:", user);
-  res.json({
-    message: "OTP Sent",
-  });
 };
 
-exports.sendOtp = async (req, res) => {
+/* exports.sendOtp = async (req, res) => {
   const { phone } = req.body;
 
   const user = await User.findOne({ phone });
@@ -151,7 +153,7 @@ exports.sendOtp = async (req, res) => {
   console.log("OTP:", otp);
 
   res.json({ message: "OTP Sent" });
-};
+}; */
 
 exports.verifyOtp = async (req, res) => {
   try {
@@ -182,51 +184,40 @@ exports.verifyOtp = async (req, res) => {
   }
 };
 
-exports.resetPassword = async (
-  req,
-  res
-) => {
-  const {
-    email,
-    phone,
-    otp,
-    password,
-  } = req.body;
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, phone, otp, password } = req.body;
 
-  const user =
-    await User.findOne({
-      $or: [
-        { email },
-        { phone },
-      ],
+    const user = await User.findOne({
+      $or: [{ email }, { phone }],
     });
 
- if (
-  !user ||
-  !user.otp ||
-  String(user.otp) !== String(otp) ||
-  user.otpExpire < Date.now()
-) {
-    return res.status(400).json({
-      message: "Invalid OTP",
+    if (
+      !user ||
+      !user.otp ||
+      String(user.otp) !== String(otp) ||
+      user.otpExpire < Date.now()
+    ) {
+      return res.status(400).json({
+        message: "Invalid or expired OTP",
+      });
+    }
+
+    // hash new password
+    user.password = await bcrypt.hash(password, 10);
+
+    // clear OTP (IMPORTANT)
+    user.otp = undefined;
+    user.otpExpire = undefined;
+
+    await user.save();
+
+    res.json({
+      message: "Password reset successful",
     });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  user.password =
-    await bcrypt.hash(
-      password,
-      10
-    );
-
-  user.otp = undefined;
-  user.otpExpire = undefined;
-
-  await user.save();
-
-  res.json({
-    message:
-      "Password Reset Successful",
-  });
 };
 
 exports.getUsers = async (req, res) => {

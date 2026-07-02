@@ -2,7 +2,7 @@ const router = require("express").Router();
 
 const {
   register,
-  login,sendOtp,verifyOtp,
+  login,verifyOtp,
   forgotPassword,
   resetPassword,
   getUsers,
@@ -10,7 +10,7 @@ const {
 
 router.post("/register", register);
 router.post("/login", login);
-router.post("/send-otp", sendOtp);
+
 router.post("/verify-otp", verifyOtp);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);

@@ -30,7 +30,7 @@ export default function AddressList({
 }) {
   return (
     <Grid container spacing={1}>
-      {addresses.map((address) => {
+      {addresses?.map((address) => {
         const selected = selectedAddress?._id === address._id;
 
         return (
