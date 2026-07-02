@@ -70,7 +70,7 @@ export default function RegisterForm() {
     return alert("Please fill all fields");
   }
 
-  setLoading(true);
+  //setLoading(true);
 
   try {
     const res = await fetch(`${API_URL}/auth/register`, {
@@ -87,8 +87,6 @@ export default function RegisterForm() {
     }
   } catch (err) {
     alert("Registration failed");
-  } finally {
-    setLoading(false);
   }
 };
   // VERIFY OTP
