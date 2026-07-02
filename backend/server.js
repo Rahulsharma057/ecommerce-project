@@ -8,7 +8,16 @@ const userRoutes = require("./routes/userRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
 
-app.use(cors());
+app.use(
+  cors({
+  origin: [
+      "http://localhost:3000",
+      "https://valourashoping.netlify.app",
+      "https://app.netlify.com"
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/users", userRoutes);

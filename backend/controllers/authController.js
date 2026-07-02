@@ -4,6 +4,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 
+const sendOtpEmail = require("../utils/sendOtpEmail");
+
 exports.register = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
@@ -11,33 +13,31 @@ exports.register = async (req, res) => {
     const userExists = await User.findOne({ email });
 
     if (userExists) {
-      return res.status(400).json({
-        message: "Email already exists",
-      });
+      return res.status(400).json({ message: "Email already exists" });
     }
-  /*   if (!user.isPhoneVerified) {
-      return res.status(400).json({
-        message: "Please verify phone number",
-      });
-    } */
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await User.create({
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    await User.create({
       name,
       email,
       phone,
       password: hashedPassword,
+      otp,
+      otpExpire: Date.now() + 5 * 60 * 1000,
+      isVerified: false,
     });
 
-    res.status(201).json({
-      message: "User Registered",
-      user,
+    await sendOtpEmail(email, otp);
+
+    return res.json({
+      message: "OTP sent to your email",
     });
+
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -153,38 +153,33 @@ exports.sendOtp = async (req, res) => {
   res.json({ message: "OTP Sent" });
 };
 
-exports.verifyOtp = async (
-  req,
-  res
-) => {
-  const {
-    email,
-    phone,
-    otp,
-  } = req.body;
+exports.verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
 
-  const user =
-    await User.findOne({
-      $or: [
-        { email },
-        { phone },
-      ],
-    });
+    const user = await User.findOne({ email });
 
- if (
-  !user ||
-  !user.otp ||
-  String(user.otp) !== String(otp) ||
-  user.otpExpire < Date.now()
-) {
-    return res.status(400).json({
-      message: "Invalid OTP",
-    });
+    if (
+      !user ||
+      user.otp !== otp ||
+      user.otpExpire < Date.now()
+    ) {
+      return res.status(400).json({
+        message: "Invalid OTP",
+      });
+    }
+
+    user.otp = undefined;
+    user.otpExpire = undefined;
+    user.isVerified = true;
+
+    await user.save();
+
+    res.json({ message: "Email verified successfully" });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  res.json({
-    message: "OTP Verified",
-  });
 };
 
 exports.resetPassword = async (
