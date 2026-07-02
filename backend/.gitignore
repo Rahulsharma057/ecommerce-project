@@ -61,3 +61,6 @@ tmp/
 *.pid
 *.seed
 *.pid.lock
+
+# Generated invoices
+invoices/
