@@ -1,0 +1,88 @@
+const products = [
+  {
+    id: 1,
+    name: "Elegant Kurti",
+    price: 1499,
+    category: "Women",
+    isNewArrival: true,
+    isSale: false,
+    images: [
+      "https://picsum.photos/400/500?random=1",
+      "https://picsum.photos/400/500?random=11",
+      "https://picsum.photos/400/500?random=12",
+      "https://picsum.photos/400/500?random=13",
+    ],
+  },
+  {
+    id: 2,
+    name: "Premium Shirt",
+    price: 999,
+    category: "Men",
+    isNewArrival: false,
+    isSale: true,
+    images: [
+      "https://picsum.photos/400/500?random=2",
+      "https://picsum.photos/400/500?random=21",
+      "https://picsum.photos/400/500?random=22",
+      "https://picsum.photos/400/500?random=23",
+    ],
+  },
+  {
+    id: 3,
+    name: "Classic Handbag",
+    price: 2499,
+    category: "Accessories",
+    isNewArrival: false,
+    isSale: false,
+    images: [
+      "https://picsum.photos/400/500?random=3",
+      "https://picsum.photos/400/500?random=31",
+      "https://picsum.photos/400/500?random=32",
+      "https://picsum.photos/400/500?random=33",
+    ],
+  },
+  {
+    id: 4,
+    name: "Luxury Heels",
+    price: 2999,
+    category: "Footwear",
+    isNewArrival: false,
+    isSale: false,
+    images: [
+      "https://picsum.photos/400/500?random=4",
+      "https://picsum.photos/400/500?random=41",
+      "https://picsum.photos/400/500?random=42",
+      "https://picsum.photos/400/500?random=43",
+    ],
+  },
+  {
+    id: 5,
+    name: "Summer Dress",
+    price: 1799,
+    category: "Women",
+    isNewArrival: true,
+    isSale: false,
+    images: [
+      "https://picsum.photos/400/500?random=5",
+      "https://picsum.photos/400/500?random=51",
+      "https://picsum.photos/400/500?random=52",
+      "https://picsum.photos/400/500?random=53",
+    ],
+  },
+  {
+    id: 6,
+    name: "Formal Blazer",
+    price: 3499,
+    category: "Men",
+    isNewArrival: false,
+    isSale: true,
+    images: [
+      "https://picsum.photos/400/500?random=6",
+      "https://picsum.photos/400/500?random=61",
+      "https://picsum.photos/400/500?random=62",
+      "https://picsum.photos/400/500?random=63",
+    ],
+  },
+];
+
+export default products;

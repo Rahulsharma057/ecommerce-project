@@ -1,0 +1,468 @@
+"use client";
+
+import {
+  Container,
+  Grid,
+  Paper,
+  Typography,
+  Button,
+  Stack,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  Divider,
+  Card,
+  CardContent,
+  Box, IconButton 
+} from "@mui/material";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import AddressList from "@/components/address/AddressList";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import OrderSummary from "@/components/checkout/OrderSummary";
+import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
+import { API_URL } from "@/lib/api";
+export default function CheckoutPage() {
+  const router = useRouter();
+
+  const [items, setItems] = useState([]);
+const [placingOrder, setPlacingOrder] = useState(false);
+  const [addresses, setAddresses] = useState([]);
+
+  const [selectedAddress, setSelectedAddress] = useState(null);
+
+  const [paymentMethod, setPaymentMethod] = useState("COD");
+
+  const [couponData, setCouponData] = useState(null);
+  const [discount, setDiscount] = useState(0);
+  const [couponCode, setCouponCode] = useState("");
+
+  const subtotal = items.reduce(
+    (acc, item) => acc + item.price * item.quantity,
+    0,
+  );
+
+  const shipping = subtotal >= 2000 ? 0 : 99;
+
+  const tax = Math.round(subtotal * 0.05);
+
+  const total = Math.max(subtotal + shipping + tax - discount, 0);
+
+  useEffect(() => {
+    fetchAddresses();
+    const savedCoupon = localStorage.getItem("checkoutCoupon");
+
+    if (savedCoupon) {
+      const data = JSON.parse(savedCoupon);
+
+      setCouponData(data.coupon);
+      setDiscount(data.discount);
+      setCouponCode(data.coupon.code);
+    }
+    const buyNow = localStorage.getItem("buyNow");
+
+    console.log("RAW", buyNow);
+    if (buyNow) {
+      const parsed = JSON.parse(buyNow);
+
+      console.log("PARSED", parsed);
+
+      console.log("QUANTITY", parsed[0].quantity);
+      const fixedItems = parsed.map((item) => ({
+        ...item,
+        quantity: Number(item.quantity) || 1,
+      }));
+
+      setItems(fixedItems);
+    } else {
+      fetchCart();
+    }
+  }, []);
+
+  const validateStock = () => {
+    let updatedItems = [];
+    let hasChange = false;
+
+    for (let item of items) {
+      if (item.stock === 0) {
+        alert(`❌ ${item.name} is out of stock`);
+        return null;
+      }
+
+      if (item.quantity > item.stock) {
+        hasChange = true;
+      }
+
+      updatedItems.push({
+        ...item,
+        quantity: Math.min(item.quantity, item.stock),
+      });
+    }
+
+    if (hasChange) {
+      const msg =
+        "⚠️ Stock updated for some items:\n\n" +
+        items
+          .filter((i) => i.quantity > i.stock)
+          .map(
+            (i) =>
+              `${i.name}: only ${i.stock} available (you selected ${i.quantity})`,
+          )
+          .join("\n") +
+        "\n\nDo you want to continue?";
+
+      const ok = window.confirm(msg);
+
+      if (!ok) return null;
+    }
+
+    return updatedItems;
+  };
+
+  const fetchCart = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(`${API_URL}/cart`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      const cartArray = Array.isArray(data) ? data : [];
+
+      const correctedItems = cartArray.map((item) => {
+        const stock = item.productId?.stock || 0;
+
+        return {
+          productId: item.productId?._id,
+          name: item.productId?.name,
+          image: item.productId?.images?.[0],
+          price: item.productId?.price || 0,
+
+          // 🔥 IMPORTANT FIX
+          quantity: Math.min(item.quantity || 1, stock),
+
+          stock: stock,
+        };
+      });
+
+      setItems(correctedItems);
+    } catch (err) {
+      console.log(err);
+      setItems([]);
+    }
+  };
+
+  useEffect(() => {
+    if (items.some((i) => i.quantity < 1)) {
+      alert("Some items were updated due to stock availability");
+    }
+  }, [items]);
+
+  useEffect(() => {
+    if (couponData && subtotal < couponData.minOrderAmount) {
+      setCouponData(null);
+      setDiscount(0);
+      setCouponCode("");
+
+      localStorage.removeItem("checkoutCoupon");
+
+      alert("Coupon removed because order amount changed.");
+    }
+  }, [subtotal, couponData]);
+
+  const fetchAddresses = async () => {
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(`${API_URL}/users/addresses`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json();
+
+    setAddresses(data);
+
+    if (data.length > 0) {
+      setSelectedAddress(data[0]);
+    }
+  };
+
+  const handleApplyCoupon = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(`${API_URL}/coupons/apply`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          code: couponCode,
+          subtotal,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message);
+        return;
+      }
+
+      setCouponData(data.coupon);
+      setDiscount(data.discount);
+
+      localStorage.setItem(
+        "checkoutCoupon",
+        JSON.stringify({
+          coupon: data.coupon,
+          discount: data.discount,
+        }),
+      );
+
+      alert("Coupon Applied");
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const handlePlaceOrder = async () => {
+        setPlacingOrder(true);
+    if (!selectedAddress) {
+      alert("Please add address");
+      return;
+    }
+
+    const validatedItems = validateStock();
+
+    if (!validatedItems) return; // stop checkout
+
+    const token = localStorage.getItem("token");
+    console.log(validatedItems);
+    const res = await fetch(`${API_URL}/orders/place`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        items: validatedItems, // 🔥 FIXED HERE
+        shippingAddress: selectedAddress,
+        paymentMethod,
+        coupon: couponData?._id,
+        discount,
+        total,
+      }),
+    });
+
+    const data = await res.json();
+
+    localStorage.removeItem("buyNow");
+    localStorage.removeItem("checkoutCoupon");
+    localStorage.removeItem("appliedCoupon");
+    setPlacingOrder(false);
+    router.push(`/profile/orders/${data._id}`);
+  };
+const removeCoupon = () => {
+  setCouponData(null);
+  setDiscount(0);
+  setCouponCode("");
+
+  localStorage.removeItem("appliedCoupon");
+  localStorage.removeItem("checkoutCoupon");
+
+  window.dispatchEvent(new Event("coupon-update"));
+};
+
+  useEffect(() => {
+  const handleCouponUpdate = () => {
+    const saved = localStorage.getItem("checkoutCoupon");
+
+    if (!saved) {
+      setCouponData(null);
+      setDiscount(0);
+      setCouponCode("");
+      return;
+    }
+
+    const data = JSON.parse(saved);
+
+    setCouponData(data.coupon);
+    setDiscount(data.discount);
+  };
+
+  window.addEventListener("coupon-update", handleCouponUpdate);
+
+  return () =>
+    window.removeEventListener("coupon-update", handleCouponUpdate);
+}, []);
+
+  return (
+    <Box
+  sx={{
+    minHeight: "100vh",
+    bgcolor: "#f6f8fb",
+    py: 2,
+    px:1,
+  }}
+>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Grid container spacing={4}>
+       <Grid item xs={12} md={8}>
+          <Stack
+  direction="row"
+  spacing={2}
+  alignItems="center"
+  mb={4}
+>
+  <IconButton
+    onClick={() => router.back()}
+    sx={{
+
+      width: 46,
+      height: 46,
+    }}
+  >
+    <ArrowBackIcon />
+  </IconButton>
+
+  <Box>
+    <Typography fontSize={28} fontWeight={800}>
+      Checkout
+    </Typography>
+
+    <Typography color="text.secondary">
+      Complete your order securely
+    </Typography>
+  </Box>
+</Stack>
+          <Paper sx={{ p: 3 }}>
+   <Stack
+  direction="row"
+  alignItems="center"
+  spacing={1}
+  mb={3}
+>
+  <LocalShippingOutlinedIcon
+    sx={{
+      color: "#2f3132",
+      fontSize: 28,
+    }}
+  />
+
+  <Typography variant="h5" fontWeight={700}>
+    Delivery Address
+  </Typography>
+</Stack>
+
+            {addresses.length === 0 ? (
+              <>
+                <Typography>No address found.</Typography>
+
+                <Button
+                  sx={{
+                    mt: 2,
+                  }}
+                  variant="contained"
+                  onClick={() => router.push("/profile/address")}
+                >
+                  Add Address
+                </Button>
+              </>
+            ) : (
+              <RadioGroup>
+             <AddressList
+  addresses={addresses}
+  selectedAddress={selectedAddress}
+  onSelect={setSelectedAddress}
+/>
+              </RadioGroup>
+            )}
+          </Paper>
+
+      <Paper
+  elevation={0}
+  sx={{
+    p: 3,
+    mt: 3,
+    borderRadius: 3,
+    border: "1px solid #e5e7eb",
+    background: "#fff",
+  }}
+>
+  <Typography variant="h6" fontWeight={700} mb={2}>
+    Payment Method
+  </Typography>
+
+  <RadioGroup
+    value={paymentMethod}
+    onChange={(e) => setPaymentMethod(e.target.value)}
+  >
+    <Box
+      sx={{
+        border: "1px solid #e5e7eb",
+        borderRadius: 2,
+        p: 2,
+        display: "flex",
+        alignItems: "center",
+        transition: "0.2s",
+        "&:hover": {
+          borderColor: "primary.main",
+          backgroundColor: "#f9fafb",
+        },
+      }}
+    >
+      <FormControlLabel
+        value="COD"
+        control={<Radio />}
+        label={
+          <Box>
+            <Typography fontWeight={600}>
+              Cash on Delivery
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Pay when your order is delivered to your doorstep
+            </Typography>
+          </Box>
+        }
+        sx={{ m: 0 }}
+      />
+    </Box>
+  </RadioGroup>
+</Paper>
+        </Grid>
+
+<Grid item xs={12} md={4}>
+  <OrderSummary
+    items={items}
+    subtotal={subtotal}
+    shipping={shipping}
+    tax={tax}
+    total={total}
+    couponCode={couponCode}
+    setCouponCode={setCouponCode}
+    couponData={couponData}
+    discount={discount}
+    onApplyCoupon={handleApplyCoupon}
+    onRemoveCoupon={() => {
+      setCouponData(null);
+      setDiscount(0);
+      setCouponCode("");
+
+      localStorage.removeItem("checkoutCoupon");
+      localStorage.removeItem("appliedCoupon");
+    }}
+      placingOrder={placingOrder}
+    onPlaceOrder={handlePlaceOrder}
+  />
+</Grid>
+      </Grid>
+    </Container></Box>
+  );
+}
