@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import ProductsTable from "../ProductsTable";
+import ProductsTable from "@/components/product/ProductsTable";
 import { Box,Container,Typography,Paper ,Button} from "@mui/material";
 import { API_URL } from "@/lib/api";
 export default function AdminProductsPage() {
