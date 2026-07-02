@@ -186,29 +186,19 @@ exports.verifyOtp = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
   try {
-    const { email, phone, otp, password } = req.body;
+    const { email, phone, password } = req.body;
 
     const user = await User.findOne({
       $or: [{ email }, { phone }],
     });
 
-    if (
-      !user ||
-      !user.otp ||
-      String(user.otp) !== String(otp) ||
-      user.otpExpire < Date.now()
-    ) {
-      return res.status(400).json({
-        message: "Invalid or expired OTP",
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
       });
     }
 
-    // hash new password
     user.password = await bcrypt.hash(password, 10);
-
-    // clear OTP (IMPORTANT)
-    user.otp = undefined;
-    user.otpExpire = undefined;
 
     await user.save();
 
