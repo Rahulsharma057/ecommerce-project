@@ -1,31 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Box,
   Container,
   Typography,
   Paper,
-  Stack,
-  Button,
+  IconButton,
 } from "@mui/material";
+import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 
-import ProductGrid from "@/components/product/ProductGrid";
+import ProductCard from "@/components/product/ProductCard";
 import EmptyState from "@/components/common/EmptyState";
 import { API_URL } from "@/lib/api";
 
 export default function FeaturedProducts() {
   const [productList, setProductList] = useState([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalProducts, setTotalProducts] = useState(0);
+  const scrollRef = useRef(null);
 
-  const limit = 12;
+  const limit = 20; // slider ke liye ek hi baar zyada products le lo
 
   const fetchFeaturedProducts = async () => {
     try {
       const res = await fetch(
-        `${API_URL}/products/featured?page=${page}&limit=${limit}`
+        `${API_URL}/products/featured?page=1&limit=${limit}`
       );
 
       const data = await res.json();
@@ -34,12 +33,8 @@ export default function FeaturedProducts() {
 
       if (Array.isArray(data)) {
         setProductList(data);
-        setTotalPages(1);
-        setTotalProducts(data.length);
       } else {
         setProductList(data.products || []);
-        setTotalPages(data.totalPages || 1);
-        setTotalProducts(data.total || 0);
       }
     } catch (err) {
       console.log(err);
@@ -48,72 +43,128 @@ export default function FeaturedProducts() {
 
   useEffect(() => {
     fetchFeaturedProducts();
-  }, [page]);
+  }, []);
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [page]);
+  const scrollByAmount = (direction) => {
+    if (!scrollRef.current) return;
+    const { clientWidth } = scrollRef.current;
+    scrollRef.current.scrollBy({
+      left: direction === "left" ? -clientWidth * 0.9 : clientWidth * 0.9,
+      behavior: "smooth",
+    });
+  };
 
   return (
-    <Box sx={{ bgcolor: "#f8f9fb", minHeight: "100vh", py: 5 }}>
-      <Container maxWidth="xl">
+<Box sx={{ bgcolor: "#f8f9fb", minHeight: "100vh", py: 5 }}>
+  <Container maxWidth="xl">
 
-        <Typography variant="h4" fontWeight={700} mb={1}>
-          Featured Products
-        </Typography>
+    {/* HEADER */}
+    <Typography
+      variant="h4"
+      fontWeight={700}
+      mb={4}
+      sx={{
+        letterSpacing: "-0.02em",
+      }}
+    >
+      Featured Products
+    </Typography>
 
-        <Typography color="text.secondary" mb={3}>
-          Showing <strong>{productList.length}</strong> products
-        </Typography>
+    {productList.length > 0 ? (
+      <Box
+        sx={{
+          position: "relative",
+          bgcolor: "#fff",
+          borderRadius: 3,
+          p: { xs: 1.5, md: 2 },
+          boxShadow: "0 6px 20px rgba(0,0,0,0.04)",
+        }}
+      >
+        {/* LEFT ARROW */}
+        <IconButton
+          onClick={() => scrollByAmount("left")}
+          sx={{
+            position: "absolute",
+            left: -12,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 5,
+            bgcolor: "#fff",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            width: 40,
+            height: 40,
+            "&:hover": {
+              bgcolor: "#f5f5f5",
+              transform: "translateY(-50%) scale(1.05)",
+            },
+          }}
+        >
+          <ArrowBackIosNewIcon sx={{ fontSize: 16 }} />
+        </IconButton>
 
-        {productList.length > 0 ? (
-          <ProductGrid
-            products={productList}
-            wishlistMap={{}}          // ✅ FIX
-            setWishlistMap={() => {}} // ✅ FIX
-          />
-        ) : (
-          <Paper sx={{ py: 10, borderRadius: 4 }}>
-            <EmptyState title="No featured products found" />
-          </Paper>
-        )}
-
-        {/* PAGINATION */}
-        <Stack direction="row" spacing={1} justifyContent="center" mt={4}>
-          <Button
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-            variant="outlined"
-          >
-            Prev
-          </Button>
-
-          {Array.from({ length: totalPages }, (_, i) => (
-            <Button
-              key={i}
-              variant={page === i + 1 ? "contained" : "outlined"}
-              onClick={() => setPage(i + 1)}
+        {/* TRACK */}
+        <Box
+          ref={scrollRef}
+          sx={{
+            display: "flex",
+            gap: 2,
+            overflowX: "auto",
+            scrollBehavior: "smooth",
+            py: 1,
+            px: 1,
+            "&::-webkit-scrollbar": { display: "none" },
+          }}
+        >
+          {productList.map((product) => (
+            <Box
+              key={product._id}
+              sx={{
+                flex: "0 0 auto",
+                width: {
+                  xs: 160,
+                  sm: 200,
+                  md: 240,
+                  lg: 260,
+                },
+              }}
             >
-              {i + 1}
-            </Button>
+              <ProductCard
+                product={product}
+                wishlistMap={{}}
+                setWishlistMap={() => {}}
+              />
+            </Box>
           ))}
-
-          <Button
-            disabled={page === totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            variant="outlined"
-          >
-            Next
-          </Button>
-        </Stack>
-
-        <Box textAlign="center" mt={2}>
-          <Typography fontSize={13} color="text.secondary">
-            Total Featured: <strong>{totalProducts}</strong>
-          </Typography>
         </Box>
 
-      </Container>
-    </Box>
+        {/* RIGHT ARROW */}
+        <IconButton
+          onClick={() => scrollByAmount("right")}
+          sx={{
+            position: "absolute",
+            right: -12,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 5,
+            bgcolor: "#fff",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            width: 40,
+            height: 40,
+            "&:hover": {
+              bgcolor: "#f5f5f5",
+              transform: "translateY(-50%) scale(1.05)",
+            },
+          }}
+        >
+          <ArrowForwardIosIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+      </Box>
+    ) : (
+      <Paper sx={{ py: 10, borderRadius: 4 }}>
+        <EmptyState title="No featured products found" />
+      </Paper>
+    )}
+  </Container>
+</Box>
   );
 }

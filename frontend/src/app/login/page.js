@@ -1,34 +1,30 @@
 "use client";
 
-import {
-  Container,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-  Stack,
-} from "@mui/material";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Container, Paper } from "@mui/material";
 import LoginForm from "@/components/forms/LoginForm";
+
 export default function LoginPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    if (token) {
+      if (user?.role === "admin") {
+        router.replace("/admin/products");
+      } else {
+        router.replace("/");
+      }
+    }
+  }, [router]);
+
   return (
     <Container maxWidth="sm" sx={{ py: 10 }}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: 4,
-          border: "1px solid #e5e7eb",
-          borderRadius: 3,
-        }}
-      >
-        <Typography
-          variant="h4"
-          fontWeight={700}
-          mb={3}
-        >
-          Login
-        </Typography>
-
-  <LoginForm />
+      <Paper elevation={0}>
+        <LoginForm />
       </Paper>
     </Container>
   );

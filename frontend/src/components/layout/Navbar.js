@@ -16,7 +16,8 @@ import {
   ListItemButton,
   ListItemText,
   Divider,
-  Stack,  Dialog,
+  Stack,
+  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -29,7 +30,8 @@ import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined
 import { useSelector } from "react-redux";
 import SearchBar from "./SearchBar";
 import Tooltip from "@mui/material/Tooltip";
-
+import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Women", href: "/products?category=Women" },
@@ -41,7 +43,7 @@ const NAV_LINKS = [
 
 export default function Navbar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
-
+  const router = useRouter();
   const cartItems = useSelector((state) => state.cart.items);
   const wishlistItems = useSelector((state) => state.wishlist.items);
 
@@ -49,53 +51,55 @@ export default function Navbar() {
   const [user, setUser] = useState(null);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const getInitial = (name) => {
-  if (!name) return "U";
-  return name.trim().charAt(0).toUpperCase();
-};
+    if (!name) return "U";
+    return name.trim().charAt(0).toUpperCase();
+  };
 
   useEffect(() => {
-  setMounted(true);
-}, []);
-useEffect(() => {
-  const syncUser = () => {
-    const storedUser = localStorage.getItem("user");
-    setUser(storedUser ? JSON.parse(storedUser) : null);
+    setMounted(true);
+  }, []);
+  useEffect(() => {
+    const syncUser = () => {
+      const storedUser = localStorage.getItem("user");
+      setUser(storedUser ? JSON.parse(storedUser) : null);
+    };
+
+    syncUser();
+
+    window.addEventListener("storage", syncUser);
+    window.addEventListener("focus", syncUser);
+    window.addEventListener("userChanged", syncUser);
+
+    return () => {
+      window.removeEventListener("storage", syncUser);
+      window.removeEventListener("focus", syncUser);
+      window.removeEventListener("userChanged", syncUser);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    window.dispatchEvent(new Event("userChanged"));
+    setUser(null);
+    setLogoutOpen(false);
+    setDrawerOpen(false);
+    toast.success("Logged out successfully !! ");
+
+    setTimeout(() => {
+      router.replace("/login");
+    }, 800);
   };
 
-  syncUser();
-
-  window.addEventListener("storage", syncUser);
-  window.addEventListener("focus", syncUser);
-
-  return () => {
-    window.removeEventListener("storage", syncUser);
-    window.removeEventListener("focus", syncUser);
-  };
-}, []);
-
-
-const handleLogout = () => {
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
-
-  setUser(null);
-  setLogoutOpen(false);
-  setDrawerOpen(false);
-
-  window.location.reload();
-};
-
-
-
-if (!mounted) {
-  return (
-    <AppBar position="sticky" sx={{ bgcolor: "#fff" }}>
-      <Toolbar>
-        <Typography>Loading...</Typography>
-      </Toolbar>
-    </AppBar>
-  );
-}
+  if (!mounted) {
+    return (
+      <AppBar position="sticky" sx={{ bgcolor: "#fff" }}>
+        <Toolbar>
+          <Typography>Loading...</Typography>
+        </Toolbar>
+      </AppBar>
+    );
+  }
 
   const iconButtons = (
     <>
@@ -124,6 +128,33 @@ if (!mounted) {
           <ShoppingBagOutlinedIcon fontSize="small" />
         </Badge>
       </IconButton>
+
+      {user && (
+        <IconButton
+          component={Link}
+          href="/profile"
+          size="small"
+          aria-label="Profile"
+          sx={{ display: { xs: "inline-flex", md: "none" } }}
+        >
+          <Box
+            sx={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              bgcolor: "#858282",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            {getInitial(user.name)}
+          </Box>
+        </IconButton>
+      )}
     </>
   );
 
@@ -132,13 +163,13 @@ if (!mounted) {
       <AppBar
         position="sticky"
         elevation={0}
-       sx={{
-    bgcolor: "#fff",
-    color: "#111",
-    borderBottom: "1px solid #E5E7EB",
-    overflowX: "hidden",   // 🔥 IMPORTANT
-    zIndex: (theme) => theme.zIndex.drawer + 2, 
-  }}
+        sx={{
+          bgcolor: "#fff",
+          color: "#111",
+          borderBottom: "1px solid #E5E7EB",
+          overflowX: "hidden", // 🔥 IMPORTANT
+          zIndex: (theme) => theme.zIndex.drawer + 2,
+        }}
       >
         <Container maxWidth="xl">
           <Toolbar disableGutters sx={{ minHeight: { xs: 56, md: 64 } }}>
@@ -147,7 +178,7 @@ if (!mounted) {
               edge="start"
               onClick={() => setDrawerOpen(true)}
               aria-label="Open menu"
-              sx={{ display: { xs: "flex", md: "none" }, mr: 1 ,  flexShrink: 0,  }}
+              sx={{ display: { xs: "flex", md: "none" }, mr: 1, flexShrink: 0 }}
             >
               <MenuIcon />
             </IconButton>
@@ -183,7 +214,8 @@ if (!mounted) {
               sx={{
                 display: { xs: "none", md: "flex" },
                 gap: 0.5,
-                ml: 4,flexWrap: "nowrap", 
+                ml: 4,
+                flexWrap: "nowrap",
               }}
             >
               {NAV_LINKS.map((link) => (
@@ -193,17 +225,51 @@ if (!mounted) {
                   component={Link}
                   href={link.href}
                   sx={{
-                    fontSize: 13,
-                    fontWeight: 500,
-                    letterSpacing: "0.02em",
-                    px: 1.5,
-                    py: 0.75,
+                    position: "relative",
+                    fontSize: "10.5px",
+                    fontWeight: 600,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "#555",
+                    px: 1,
+                    py: 1,
                     borderRadius: 2,
-                    color: "text.secondary",
-                    "&:hover": { color: "text.primary", bgcolor: "grey.100" },
+                    transition: "all .3s ease",
+
+                    "&::after": {
+                      content: '""',
+                      position: "absolute",
+                      left: "50%",
+                      bottom: 6,
+                      width: 0,
+                      height: "2px",
+                      bgcolor: "#111",
+                      transition: "all .3s ease",
+                      transform: "translateX(-50%)",
+                      borderRadius: "10px",
+                    },
+
+                    "&:hover": {
+                      bgcolor: "transparent",
+                      color: "#111",
+                      transform: "translateY(-2px)",
+
+                      "&::after": {
+                        width: "70%",
+                      },
+                    },
+
                     ...(link.label === "Sale" && {
                       color: "#D85A30",
-                      "&:hover": { color: "#993C1D", bgcolor: "#D85A3010" },
+
+                      "&::after": {
+                        bgcolor: "#D85A30",
+                      },
+
+                      "&:hover": {
+                        color: "#B63E15",
+                        bgcolor: "transparent",
+                      },
                     }),
                   }}
                 >
@@ -216,100 +282,100 @@ if (!mounted) {
             <Box sx={{ flexGrow: 1 }} />
 
             {/* ── Search bar (hidden on xs) ── */}
-            <Box sx={{ display: { xs: "none", sm: "block" }, mr: 1.5 }}>
-              <SearchBar />
+            <Box sx={{ display: { xs: "none", sm: "block" }, mr: 1.2 }}>
+              <SearchBar fullWidth />
             </Box>
 
             {/* ── Icon buttons ── */}
-      <Stack
-  direction="row"
-  alignItems="center"
-
-  sx={{
-    flexShrink: 0,
-    maxWidth: "100%",
-  }}
->
+            <Stack
+              direction="row"
+              alignItems="center"
+              sx={{
+                flexShrink: 0,
+                maxWidth: "100%",
+              }}
+            >
               {iconButtons}
 
-     {user ? (
-<Stack
-  direction="row"
-  spacing={1}
-  sx={{
-    alignItems: "center",
-    flexShrink: 0,
-    flexWrap: "nowrap",
-  }}
->
-    {user.role === "admin" && (
-      <Button
-        component={Link}
-        href="/admin/products"
-        size="small"
-        variant="contained"
-        sx={{
-          display: { xs: "none", md: "inline-flex" },
-          borderRadius: 2,
-          bgcolor: "#111",
-        }}
-      >
-        Admin
-      </Button>
-    )}
-<Tooltip title={user.name}>
-    <Button
-      component={Link}
-      href="/profile"
-      size="small"
-      variant="outlined"
-      sx={{
-    display: { xs: "none", md: "inline-flex" },
-    borderRadius: "50%",   // 🔥 circle
-    minWidth: 36,
-    width: 36,
-    border:"none",
-    height: 36,
-    p: 0,
-    color:"white",
-    fontWeight: 700,       bgcolor: "#858282",
-  }}
-    >
-      {getInitial(user.name)}
- {/*    {user.name} */}
-    </Button>
-</Tooltip>
-    <Button
-      size="small"
-      color="error"
-      variant="outlined"
-     onClick={() => setLogoutOpen(true)}
-      sx={{
-        display: { xs: "none", md: "inline-flex" },
-        borderRadius: 2,
-      }}
-    >
-      Logout
-    </Button>
-  </Stack>
-) : (
-  <Button
-    component={Link}
-    href="/login"
-    size="small"
-    variant="outlined"
-    sx={{
-      display: { xs: "none", md: "inline-flex" },
-      ml: 1,
-      fontSize: 13,
-      fontWeight: 500,
-      borderRadius: 2,
-      px: 2,
-    }}
-  >
-    Login
-  </Button>
-)}
+              {user ? (
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    alignItems: "center",
+                    flexShrink: 0,
+                    flexWrap: "nowrap",
+                  }}
+                >
+                  {user.role === "admin" && (
+                    <Button
+                      component={Link}
+                      href="/admin/products"
+                      size="small"
+                      variant="contained"
+                      sx={{
+                        display: { xs: "none", md: "inline-flex" },
+                        borderRadius: 2,
+                        bgcolor: "#111",
+                      }}
+                    >
+                      Admin
+                    </Button>
+                  )}
+                  <Tooltip title={user.name}>
+                    <Button
+                      component={Link}
+                      href="/profile"
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        display: { xs: "none", md: "inline-flex" },
+                        borderRadius: "50%", // 🔥 circle
+                        minWidth: 36,
+                        width: 36,
+                        border: "none",
+                        height: 36,
+                        p: 0,
+                        color: "white",
+                        fontWeight: 700,
+                        bgcolor: "#858282",
+                      }}
+                    >
+                      {getInitial(user.name)}
+                      {/*    {user.name} */}
+                    </Button>
+                  </Tooltip>
+                  <Button
+                    size="small"
+                    color="error"
+                    variant="outlined"
+                    onClick={() => setLogoutOpen(true)}
+                    sx={{
+                      display: { xs: "none", md: "inline-flex" },
+                      borderRadius: 2,
+                    }}
+                  >
+                    Logout
+                  </Button>
+                </Stack>
+              ) : (
+                <Button
+                  component={Link}
+                  href="/login"
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    display: { xs: "none", md: "inline-flex" },
+                    ml: 1,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    borderRadius: 2,
+                    px: 2,
+                  }}
+                >
+                  Login
+                </Button>
+              )}
             </Stack>
           </Toolbar>
 
@@ -348,6 +414,10 @@ if (!mounted) {
             justifyContent: "space-between",
             px: 2.5,
             pb: 2,
+            mt: {
+              xs: 4,
+              md: 0,
+            },
           }}
         >
           <Typography
@@ -411,81 +481,65 @@ if (!mounted) {
 
         {/* Login in drawer */}
         <Box sx={{ px: 2.5, pt: 2 }}>
-     {user ? (
-  <>
-    {user.role === "admin" && (
-      <Button
-        fullWidth
-        component={Link}
-        href="/admin/products"
-        onClick={() => setDrawerOpen(false)}
-      >
-        Admin Panel
-      </Button>
-    )}
+          {user ? (
+            <>
+              {user.role === "admin" && (
+                <Button
+                  fullWidth
+                  component={Link}
+                  href="/admin/products"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  Admin Panel
+                </Button>
+              )}
 
-    <Button
-      fullWidth
-      component={Link}
-      href="/profile"
-      onClick={() => setDrawerOpen(false)}
-    >
-      Profile
-    </Button>
+              <Button
+                fullWidth
+                component={Link}
+                href="/profile"
+                onClick={() => setDrawerOpen(false)}
+              >
+                Profile
+              </Button>
 
-    <Button
-      fullWidth
-      color="error"
-     onClick={() => setLogoutOpen(true)}
-      sx={{ mt: 1 }}
-    >
-      Logout
-    </Button>
-  </>
-) : (
-  <Button
-    fullWidth
-    component={Link}
-    href="/login"
-    variant="outlined"
-    onClick={() => setDrawerOpen(false)}
-  >
-    Login
-  </Button>
-)}
+              <Button
+                fullWidth
+                color="error"
+                onClick={() => setLogoutOpen(true)}
+                sx={{ mt: 1 }}
+              >
+                Logout
+              </Button>
+            </>
+          ) : (
+            <Button
+              fullWidth
+              component={Link}
+              href="/login"
+              variant="outlined"
+              onClick={() => setDrawerOpen(false)}
+            >
+              Login
+            </Button>
+          )}
         </Box>
       </Drawer>
-      <Dialog
-  open={logoutOpen}
-  onClose={() => setLogoutOpen(false)}
->
-  <DialogTitle>
-    Logout
-  </DialogTitle>
+      <Dialog open={logoutOpen} onClose={() => setLogoutOpen(false)}>
+        <DialogTitle>Logout</DialogTitle>
 
-  <DialogContent>
-    <Typography>
-      Are you sure you want to logout?
-    </Typography>
-  </DialogContent>
+        <DialogContent>
+          <Typography>Are you sure you want to logout?</Typography>
+        </DialogContent>
 
-  <DialogActions>
-    <Button
-      onClick={() => setLogoutOpen(false)}
-    >
-      Cancel
-    </Button>
+        <DialogActions>
+          <Button onClick={() => setLogoutOpen(false)}>Cancel</Button>
 
-    <Button
-      color="error"
-      variant="contained"
-      onClick={handleLogout}
-    >
-      Logout
-    </Button>
-  </DialogActions>
-</Dialog>
+          <Button color="error" variant="contained" onClick={handleLogout}>
+            Logout
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
-
   );
 }

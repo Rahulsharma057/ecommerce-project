@@ -51,7 +51,7 @@ export default function ProductDetailsPage() {
   const isWishlisted = !!wishlistMap[product?._id];
   const [rating, setRating] = useState(5);
   const [relatedProducts, setRelatedProducts] = useState([]);
-
+const [submittingReview, setSubmittingReview] = useState(false);
   const [comment, setComment] = useState("");
   const [showAllReviews, setShowAllReviews] = useState(false);
   const displayedReviews = showAllReviews
@@ -213,30 +213,57 @@ export default function ProductDetailsPage() {
     }
   };
 
-  const submitReview = async () => {
-    const token = localStorage.getItem("token");
 
-    const res = await fetch(
-      `${API_URL}/products/${product._id}/review`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          rating,
-          comment,
-        }),
-      }
-    );
+
+const submitReview = async () => {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    alert("Please login to submit a review");
+    return;
+  }
+
+  if (!comment.trim()) {
+    alert("Please write a comment before submitting");
+    return;
+  }
+
+  setSubmittingReview(true);
+
+  try {
+    const res = await fetch(`${API_URL}/products/${product._id}/review`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        rating,
+        comment,
+      }),
+    });
 
     const data = await res.json();
 
-    alert(data.message);
+    if (!res.ok) {
+      alert(data.message || "Failed to submit review");
+      return;
+    }
+
+    alert(data.message || "Review submitted");
+
+    // reset form
+    setComment("");
+    setRating(5);
 
     fetchProduct();
-  };
+  } catch (err) {
+    console.log(err);
+    alert("Something went wrong. Please try again.");
+  } finally {
+    setSubmittingReview(false);
+  }
+};
 
   const handleBuyNow = () => {
     if (!product) return;
@@ -626,115 +653,202 @@ export default function ProductDetailsPage() {
               </Typography>
             </Stack>
 
-            <Rating
-              value={rating}
-              onChange={(e, newValue) => setRating(newValue)}
-              sx={{ mb: 2 }}
-            />
+          <Rating
+  value={rating}
+  onChange={(e, newValue) => setRating(newValue || 1)}
+  sx={{ mb: 2 }}
+/>
 
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Share your experience with this product..."
-              sx={{
-                mb: 2,
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: 2,
-                  fontSize: 14,
-                  "& fieldset": { borderColor: "#e2e8f0" },
-                  "&:hover fieldset": { borderColor: "#94a3b8" },
-                  "&.Mui-focused fieldset": { borderColor: "#4f46e5" },
-                },
-              }}
-            />
+<TextField
+  fullWidth
+  multiline
+  rows={3}
+  value={comment}
+  onChange={(e) => setComment(e.target.value)}
+  placeholder="Share your experience with this product..."
+  disabled={submittingReview}
+  sx={{
+    mb: 2,
+    "& .MuiOutlinedInput-root": {
+      borderRadius: 2,
+      fontSize: 14,
+      "& fieldset": { borderColor: "#e2e8f0" },
+      "&:hover fieldset": { borderColor: "#94a3b8" },
+      "&.Mui-focused fieldset": { borderColor: "#4f46e5" },
+    },
+  }}
+/>
 
-            <Button
-              variant="contained"
-              onClick={submitReview}
-              sx={{
-                textTransform: "none",
-                fontWeight: 600,
-                borderRadius: 2,
-                bgcolor: "#4f46e5",
-                boxShadow: "none",
-                "&:hover": { bgcolor: "#4338ca", boxShadow: "none" },
-              }}
-            >
-              Submit Review
-            </Button>
+<Button
+  variant="contained"
+  onClick={submitReview}
+  disabled={submittingReview}
+  sx={{
+    textTransform: "none",
+    fontWeight: 600,
+    borderRadius: 2,
+    bgcolor: "#4f46e5",
+    boxShadow: "none",
+    "&:hover": { bgcolor: "#4338ca", boxShadow: "none" },
+  }}
+>
+  {submittingReview ? "Submitting..." : "Submit Review"}
+</Button>
+
           </Paper>
 
           {/* ================= REVIEWS LIST ================= */}
-          <Box mt={4}>
-            <Typography variant="h6" fontWeight={700} mb={2} sx={{ color: "#0f172a" }}>
-              Customer Reviews ({product.reviews?.length || 0})
-            </Typography>
+  <Box mt={5}>
+  <Typography
+    variant="h5"
+    fontWeight={700}
+    mb={3}
+    sx={{ color: "#111827" }}
+  >
+    Customer Reviews ({product.reviews?.length || 0})
+  </Typography>
 
-            {displayedReviews?.length === 0 && (
-              <Typography sx={{ color: "#94a3b8", fontSize: 14 }}>
-                No reviews yet. Be the first to review this product!
-              </Typography>
-            )}
+  {displayedReviews?.length === 0 ? (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 5,
+        textAlign: "center",
+        border: "1px dashed #d1d5db",
+        borderRadius: 3,
+        bgcolor: "#fafafa",
+      }}
+    >
+      <Typography color="text.secondary">
+        No reviews yet. Be the first to review this product ⭐
+      </Typography>
+    </Paper>
+  ) : (
+    <Stack spacing={2.5}>
+      {displayedReviews?.map((review, index) => (
+        <Paper
+          key={review._id || index}
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: 3,
+            border: "1px solid #e5e7eb",
+            transition: "0.3s",
+            "&:hover": {
+              boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
+            },
+          }}
+        >
+          <Stack
+            direction="row"
+            spacing={2}
+            alignItems="flex-start"
+          >
+            <Avatar
+              sx={{
+                bgcolor: "#111",
+                width: 48,
+                height: 48,
+                fontWeight: 700,
+                fontSize: 16,
+              }}
+            >
+              {review.name?.charAt(0).toUpperCase() || "U"}
+            </Avatar>
 
-            <Stack spacing={2}>
-              {displayedReviews?.map((review, index) => (
-                <Paper
-                  key={review._id || index}
-                  elevation={0}
-                  sx={{
-                    p: 2.5,
-                    borderRadius: 3,
-                    border: "1px solid #f1f5f9",
-                  }}
-                >
-                  <Stack direction="row" spacing={1.5} alignItems="flex-start">
-                    <Avatar sx={{ width: 36, height: 36, bgcolor: "#18181b", fontSize: 13, fontWeight: 700 }}>
-                      {review.name?.[0]?.toUpperCase() || "U"}
-                    </Avatar>
+      <Box flex={1}>
+  <Stack
+    direction={{ xs: "column", sm: "row" }}
+    justifyContent="space-between"
+    alignItems={{ xs: "flex-start", sm: "center" }}
+    spacing={1}
+  >
+    <Box>
+      {/* User Name */}
+      <Typography
+        sx={{
+          fontSize: 16,
+          fontWeight: 700,
+          color: "#111827",
+        }}
+      >
+        {review.name || "Anonymous User"}
+      </Typography>
 
-                    <Box sx={{ flex: 1 }}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap">
-                        <Typography fontWeight={700} sx={{ fontSize: 14.5, color: "#0f172a" }}>
-                          {review.name}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: "#94a3b8" }}>
-                          {new Date(review.createdAt).toLocaleDateString()}
-                        </Typography>
-                      </Stack>
+      {/* Review Date */}
+      <Typography
+        variant="caption"
+        sx={{
+          color: "#9ca3af",
+          display: "block",
+          mt: 0.3,
+        }}
+      >
+        {new Date(review.createdAt).toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })}
+      </Typography>
+    </Box>
 
-                      <Rating value={review.rating} readOnly precision={0.5} size="small" sx={{ mt: 0.3 }} />
+    {/* Rating */}
+   {/* Rating - cleaned up */}
+<Box
+  sx={{
+    display: "inline-flex",
+    alignItems: "center",
+    bgcolor: "#fff8e1",
+    px: 1,
+    py: 0.4,
+    borderRadius: 5,
+    border: "1px solid #ffe082",
+    flexShrink: 0,
+  }}
+>
+  <Rating value={review.rating} precision={0.5} readOnly size="small" />
+</Box>
+  </Stack>
 
-                      <Typography variant="body2" sx={{ color: "#64748b", mt: 1, lineHeight: 1.6 }}>
-                        {review.comment}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Paper>
-              ))}
-            </Stack>
+  <Typography
+    sx={{
+      mt: 2,
+      color: "#4b5563",
+      lineHeight: 1.8,
+      fontSize: 14,
+    }}
+  >
+    {review.comment}
+  </Typography>
+</Box>
+          </Stack>
+        </Paper>
+      ))}
+    </Stack>
+  )}
 
-            {product.reviews?.length > 4 && (
-              <Button
-                variant="outlined"
-                sx={{
-                  mt: 2.5,
-                  textTransform: "none",
-                  fontWeight: 600,
-                  borderRadius: 2,
-                  borderColor: "#e2e8f0",
-                  color: "#334155",
-                  "&:hover": { borderColor: "#cbd5e1", bgcolor: "#f8fafc" },
-                }}
-                onClick={() => setShowAllReviews((prev) => !prev)}
-                fullWidth
-              >
-                {showAllReviews ? "Show Less" : "See More Reviews"}
-              </Button>
-            )}
-          </Box>
+  {product.reviews?.length > 4 && (
+    <Box textAlign="center" mt={4}>
+      <Button
+        variant="contained"
+        onClick={() => setShowAllReviews((prev) => !prev)}
+        sx={{
+          borderRadius: 10,
+          px: 4,
+          py: 1.2,
+          bgcolor: "#111",
+          textTransform: "none",
+          fontWeight: 600,
+          "&:hover": {
+            bgcolor: "#333",
+          },
+        }}
+      >
+        {showAllReviews ? "Show Less Reviews" : "View All Reviews"}
+      </Button>
+    </Box>
+  )}
+</Box>
         </Grid>
       </Grid>
 

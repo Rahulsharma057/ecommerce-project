@@ -7,7 +7,16 @@ const {
   updateProduct,
   deleteProduct,createProductReview,getRelatedProducts,getFeaturedProducts
 } = require("../controllers/productController");
-
+console.log({
+  addProduct,
+  getProducts,
+  getSingleProduct,
+  updateProduct,
+  deleteProduct,
+  createProductReview,
+  getRelatedProducts,
+  getFeaturedProducts,
+});
 const authMiddleware = require("../middleware/authMiddleware");
 router.get("/featured", getFeaturedProducts);
 router.post("/add", addProduct);

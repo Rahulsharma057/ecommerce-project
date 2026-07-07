@@ -7,6 +7,12 @@ const app = express();
 const userRoutes = require("./routes/userRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
+const careerRoutes = require("./routes/careerRoutes");
+const contactRoutes = require("./routes/contactRoutes");
+const pressRoutes = require("./routes/pressRoutes");
+const newsletterRoutes = require("./routes/newsletterRoutes");
+const affiliateRoutes =
+require("./routes/affiliateRoutes");
 
 app.use(cors({
   origin: true,
@@ -19,11 +25,22 @@ app.use(
   "/api/coupons",
   require("./routes/couponRoutes")
 );
+app.use("/api/newsletter", newsletterRoutes);
+app.use(
+"/api/contact",
+contactRoutes
+);
+app.use(
+"/api/affiliate",
+affiliateRoutes
+);
+app.use("/api/press", pressRoutes);
 app.use("/api/cart", require("./routes/cartRoutes"));
 app.use("/api/wishlist", require("./routes/wishlistRoutes"));
 app.use("/api/products", require("./routes/productRoutes"));
 app.use("/api/orders", require("./routes/orderRoutes"));
 app.use("/api/invoice", invoiceRoutes);
+app.use("/api/career", careerRoutes);
 app.get("/", (req, res) => {
   res.send("🚀 Backend Running Successfully");
 });

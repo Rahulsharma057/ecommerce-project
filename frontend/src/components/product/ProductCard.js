@@ -23,14 +23,13 @@ import { useDispatch } from "react-redux";
 import { addToWishlist } from "@/redux/slices/wishlistSlice";
 import { API_URL } from "@/lib/api";
 
-export default function ProductCard({ product, wishlistMap,setWishlistMap }) {
+export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
   const dispatch = useDispatch();
   const router = useRouter();
   const [loginOpen, setLoginOpen] = useState(false);
   const [loading, setLoading] = useState(false);
- // const [wishlistMap, setWishlistMap] = useState({});
+  // const [wishlistMap, setWishlistMap] = useState({});
   const isWishlisted = !!wishlistMap[product._id];
-
 
   const handleWishlist = async (e) => {
     e.preventDefault();
@@ -79,8 +78,6 @@ export default function ProductCard({ product, wishlistMap,setWishlistMap }) {
     }
   };
 
-  
-
   const handleAddToCart = async (e) => {
     e.preventDefault();
 
@@ -125,8 +122,16 @@ export default function ProductCard({ product, wishlistMap,setWishlistMap }) {
       <Box sx={{ position: "relative" }}>
         <CardMedia
           component="img"
-          height="280"
           image={product.images?.[0] || product.image}
+          alt={product.name}
+          sx={{
+            height: {
+              xs: 220, // Mobile
+              sm: 240, // Small tablets
+              md: 280, // Desktop (same as current)
+            },
+            objectFit: "cover",
+          }}
         />
 
         {/* WISHLIST */}

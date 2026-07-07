@@ -13,7 +13,15 @@ import {
   Typography,
   Paper,
   CircularProgress,
+  InputAdornment,
+  Divider,
 } from "@mui/material";
+
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
+import PhoneAndroidOutlinedIcon from "@mui/icons-material/PhoneAndroidOutlined";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+
 import { useRouter } from "next/navigation";
 import { API_URL } from "@/lib/api";
 
@@ -36,8 +44,7 @@ export default function RegisterForm() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // SEND OTP
-  const sendOtp = async () => {
+  const registerUser = async () => {
     if (!form.name || !form.email || !form.phone || !form.password) {
       return alert("Please fill all fields");
     }
@@ -45,51 +52,25 @@ export default function RegisterForm() {
     try {
       setLoading(true);
 
-      const res = await fetch(`${API_URL}/auth/send-otp`, {
+      const res = await fetch(`${API_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: form.email,
-          phone: form.phone,
-        }),
+        body: JSON.stringify(form),
       });
 
       const data = await res.json();
       alert(data.message);
 
-      if (res.ok) setOpenOtp(true);
+      if (res.ok) {
+        setOpenOtp(true);
+      }
     } catch (err) {
-      alert("Error sending OTP");
+      alert("Registration failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const registerUser = async () => {
-  if (!form.name || !form.email || !form.phone || !form.password) {
-    return alert("Please fill all fields");
-  }
-
-  //setLoading(true);
-
-  try {
-    const res = await fetch(`${API_URL}/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-
-    const data = await res.json();
-    alert(data.message);
-
-    if (res.ok) {
-      setOpenOtp(true); // OTP dialog open
-    }
-  } catch (err) {
-    alert("Registration failed");
-  }
-};
-  // VERIFY OTP
   const verifyOtp = async () => {
     try {
       setOtpLoading(true);
@@ -124,45 +105,86 @@ export default function RegisterForm() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        bgcolor: "#f5f7fb",
+        background:
+          "linear-gradient(135deg, #f7f7f7 0%, #e9e9e9 100%)",
         p: 2,
       }}
     >
       <Paper
-        elevation={3}
+        elevation={12}
         sx={{
-          width: 420,
-          p: 4,
-          borderRadius: 3,
+          width: 460,
+          maxWidth: "100%",
+          p: 5,
+          borderRadius: 5,
+          backdropFilter: "blur(10px)",
         }}
       >
-        <Typography variant="h5" fontWeight={600} mb={3} textAlign="center">
-          Create Account
-        </Typography>
+        {/* BRAND HEADER */}
+        <Box textAlign="center" mb={3}>
+          <Typography
+            variant="h4"
+            fontWeight={800}
+            letterSpacing={4}
+          >
+            VELOURA
+          </Typography>
+
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            mt={1}
+          >
+            Create your premium fashion account
+          </Typography>
+        </Box>
+
+        <Divider sx={{ mb: 3 }} />
 
         <Stack spacing={2.5}>
           <TextField
-            label="Name"
+            label="Full Name"
             name="name"
             value={form.name}
             onChange={handleChange}
             fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <PersonOutlineIcon />
+                </InputAdornment>
+              ),
+            }}
           />
 
           <TextField
-            label="Email"
+            label="Email Address"
             name="email"
             value={form.email}
             onChange={handleChange}
             fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <EmailOutlinedIcon />
+                </InputAdornment>
+              ),
+            }}
           />
 
           <TextField
-            label="Phone"
+            label="Phone Number"
             name="phone"
             value={form.phone}
             onChange={handleChange}
             fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <PhoneAndroidOutlinedIcon />
+                </InputAdornment>
+              ),
+            }}
           />
 
           <TextField
@@ -172,37 +194,79 @@ export default function RegisterForm() {
             value={form.password}
             onChange={handleChange}
             fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LockOutlinedIcon />
+                </InputAdornment>
+              ),
+            }}
           />
-<Button
-  variant="contained"
-  onClick={registerUser}
-  disabled={loading}
->
-  {loading ? <CircularProgress size={22} /> : "Register"}
-</Button>
-      {/*     <Button
+
+          <Button
             variant="contained"
-            onClick={sendOtp}
+            size="large"
+            onClick={registerUser}
             disabled={loading}
             sx={{
-              py: 1.2,
-              fontWeight: 600,
-              borderRadius: 2,
+              py: 1.5,
+              borderRadius: 3,
+              fontWeight: 700,
               textTransform: "none",
+              fontSize: 16,
+              bgcolor:"black"
             }}
           >
-            {loading ? <CircularProgress size={22} /> : "Send OTP"}
-          </Button> */}
+            {loading ? (
+              <CircularProgress size={22} color="inherit" />
+            ) : (
+              "Create Account"
+            )}
+          </Button>
+
+          <Typography
+            textAlign="center"
+            color="text.secondary"
+            fontSize={14}
+          >
+            Already have an account?{" "}
+            <span
+              style={{
+                fontWeight: 700,
+                cursor: "pointer",
+                color:"blue"
+              }}
+              onClick={() => router.push("/login")}
+            >
+              Sign in
+            </span>
+          </Typography>
         </Stack>
       </Paper>
 
       {/* OTP DIALOG */}
-      <Dialog open={openOtp} onClose={() => setOpenOtp(false)}>
-        <DialogTitle>Verify OTP</DialogTitle>
+      <Dialog
+        open={openOtp}
+        onClose={() => setOpenOtp(false)}
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            p: 2,
+            width: 420,
+          },
+        }}
+      >
+        <DialogTitle textAlign="center" fontWeight={700}>
+          Verify Your Email
+        </DialogTitle>
 
         <DialogContent>
-          <Typography variant="body2" mb={2}>
-            OTP sent to <b>{form.email}</b>
+          <Typography
+            textAlign="center"
+            color="text.secondary"
+            mb={2}
+          >
+            Enter the OTP sent to <b>{form.email}</b>
           </Typography>
 
           <TextField
@@ -210,21 +274,34 @@ export default function RegisterForm() {
             value={otp}
             onChange={(e) => setOtp(e.target.value)}
             fullWidth
+            inputProps={{
+              style: {
+                textAlign: "center",
+                letterSpacing: 8,
+                fontSize: 20,
+                fontWeight: 700,
+              },
+              maxLength: 6,
+            }}
           />
         </DialogContent>
 
-        <DialogActions>
-          <Button onClick={() => setOpenOtp(false)}>Cancel</Button>
+        <DialogActions sx={{ px: 5, pb: 2 }}>
+          <Button onClick={() => setOpenOtp(false)}>
+            Cancel
+          </Button>
 
           <Button
             onClick={verifyOtp}
             variant="contained"
             disabled={otpLoading}
+            sx={{bgcolor:"black"}}
+            fullWidth
           >
             {otpLoading ? (
-              <CircularProgress size={20} />
+              <CircularProgress size={16} color="inherit" />
             ) : (
-              "Verify"
+              "Verify Account"
             )}
           </Button>
         </DialogActions>

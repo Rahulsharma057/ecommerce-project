@@ -1,5 +1,5 @@
 const Product = require("../models/Product");
-
+const User = require("../models/User");
 // ADD PRODUCT
 exports.addProduct = async (req, res) => {
   try {
@@ -17,27 +17,43 @@ exports.getProducts = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const { search = "", category = "", type = "" } = req.query;
+   const { search = "", category = "", type = "" } = req.query;
 
-    let query = {};
+let query = {};
 
-    // SEARCH
-    if (search) {
-      query.name = { $regex: search, $options: "i" };
-    }
+// =====================
+// 🔍 SEARCH (multi-word)
+// =====================
+if (search) {
+  const words = search.trim().split(" ").filter(Boolean);
 
-    // CATEGORY (case-insensitive)
-    if (category) {
-      query.category = { $regex: category, $options: "i" };
-    }
+  query.$and = words.map((word) => ({
+    $or: [
+      { name: { $regex: word, $options: "i" } },
+      { category: { $regex: word, $options: "i" } },
+      { description: { $regex: word, $options: "i" } },
+    ],
+  }));
+}
 
-    // TYPE FILTER
-    if (type === "new") {
-      query.isNewArrival = true;
-    } else if (type === "sale") {
-      query.isSale = true;
-    }
+// =====================
+// 📦 CATEGORY FILTER
+// =====================
+if (category) {
+  query.category = { $regex: category, $options: "i" };
+}
 
+// =====================
+// 🏷️ TYPE FILTER (IMPORTANT FIX)
+// =====================
+// TYPE FILTER (FIXED)
+if (type && type !== "all") {
+  if (type === "new-arrivals") {
+    query.isNewArrival = true;
+  } else if (type === "sale") {
+    query.isSale = true;
+  }
+}
     const products = await Product.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -131,12 +147,20 @@ exports.createProductReview = async (req, res) => {
       });
     }
 
-    const review = {
-      userId: req.user.id,
-      name: req.user.name,
-      rating: Number(rating),
-      comment,
-    };
+ const user = await User.findById(req.user.id);
+
+if (!user) {
+  return res.status(404).json({
+    message: "User not found",
+  });
+}
+
+const review = {
+  userId: req.user.id,
+  name: user.name,
+  rating: Number(rating),
+  comment,
+};
 
     product.reviews.push(review);
 

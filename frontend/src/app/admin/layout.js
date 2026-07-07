@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import {
   Box,
   Drawer,
@@ -19,11 +20,13 @@ import {
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import ShoppingBagOutlinedIcon from "@mui/icons-material/ShoppingBagOutlined";
+import MarkEmailUnreadOutlinedIcon from "@mui/icons-material/MarkEmailUnreadOutlined";
 import PeopleOutlinedIcon from "@mui/icons-material/PeopleOutlined";
 import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import MenuIcon from "@mui/icons-material/Menu";
 import MenuOpenIcon from "@mui/icons-material/MenuOpen";
-
+import ContactMailOutlinedIcon from "@mui/icons-material/ContactMailOutlined";
+import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 const DRAWER_OPEN = 230;
 const DRAWER_CLOSED = 64;
 
@@ -52,6 +55,31 @@ const menus = [
     name: "Coupons",
     href: "/admin/coupons",
     icon: <LocalOfferOutlinedIcon fontSize="small" />,
+  },
+  {
+    name: "Careers",
+    href: "/admin/careers",
+    icon: <Inventory2OutlinedIcon fontSize="small" />,
+  },
+  {
+    name: "Contacts",
+    href: "/admin/contact",
+    icon: <ContactMailOutlinedIcon fontSize="small" />,
+  },
+  {
+    name: "Affiliates",
+    href: "/admin/affiliates",
+    icon: <GroupsOutlinedIcon fontSize="small" />,
+  },
+  {
+    name: "Press",
+    href: "/admin/press",
+    icon: <CampaignOutlinedIcon fontSize="small" />,
+  },
+  {
+    name: "NewsLetter Emails",
+    href: "/admin/newsletter",
+    icon: <MarkEmailUnreadOutlinedIcon fontSize="small" />,
   },
 ];
 
@@ -84,7 +112,7 @@ export default function AdminLayout({ children }) {
           direction="row"
           alignItems="center"
           justifyContent={open ? "space-between" : "center"}
-          sx={{ px: open ? 2 : 0, py: 2.2, minHeight: 60 }}
+          sx={{ px: open ? 2 : 0, py: 1, minHeight: 60 }}
         >
           {open && (
             <Typography
@@ -117,7 +145,7 @@ export default function AdminLayout({ children }) {
         <Divider sx={{ borderColor: "#27272a" }} />
 
         {/* NAV ITEMS */}
-        <List sx={{ px: 1, pt: 1.5, flex: 1 }}>
+        <List sx={{ px: 1, flex: 1 }}>
           {menus.map((item) => {
             const isActive =
               item.href === "/admin"
@@ -138,7 +166,7 @@ export default function AdminLayout({ children }) {
                   <ListItemButton
                     sx={{
                       borderRadius: 1.5,
-                      mb: 0.5,
+                     // mb: 0.5,
                       minHeight: 42,
                       px: 1.5,
                       justifyContent: open ? "flex-start" : "center",

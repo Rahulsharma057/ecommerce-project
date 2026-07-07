@@ -1,5 +1,5 @@
 "use client";
-
+import { useSearchParams } from "next/navigation";
 import {
   Box,
   TextField,
@@ -7,11 +7,14 @@ import {
 } from "@mui/material";
 
 export default function ProductFilters({
-  search,
-  setSearch,
   category,
-  setCategory,
+  search,
+  filterType,
+  updateURL,
 }) {
+
+
+
   return (
     <Box
       sx={{
@@ -23,23 +26,20 @@ export default function ProductFilters({
       }}
     >
       <TextField
-        label="Search"
-        value={search}
-        onChange={(e) =>
-          setSearch(e.target.value)
-        }
+    label="Search"
+  value={search}
+  onChange={(e) => updateURL("search", e.target.value)}
+  size="small"
          sx={{ minWidth: 275 ,mb:1}}
 
-        size="small"
+ 
       />
 
       <TextField
-        select
-        label="Category"
-        value={category}
-        onChange={(e) =>
-          setCategory(e.target.value)
-        }
+    select
+  label="Category"
+value={category || ""}
+  onChange={(e) => updateURL("category", e.target.value)}
         sx={{ minWidth: 275 }}
         size="small"
       >

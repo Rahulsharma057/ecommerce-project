@@ -9,11 +9,31 @@ const sendOtpEmail = require("../utils/sendOtpEmail");
 exports.register = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
+    const cleanEmail = email.trim().toLowerCase();
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({
+      email: cleanEmail,
+    });
 
     if (userExists) {
-      return res.status(400).json({ message: "Email already exists" });
+      if (!userExists.isVerified) {
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        userExists.otp = otp;
+        userExists.otpExpire = Date.now() + 5 * 60 * 1000;
+
+        await userExists.save();
+
+        await sendOtpEmail(email, otp);
+
+        return res.json({
+          message: "Email already registered but not verified. New OTP sent.",
+        });
+      }
+
+      return res.status(400).json({
+        message: "Email already exists",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -22,7 +42,7 @@ exports.register = async (req, res) => {
 
     await User.create({
       name,
-      email,
+      email: cleanEmail,
       phone,
       password: hashedPassword,
       otp,
@@ -35,7 +55,6 @@ exports.register = async (req, res) => {
     return res.json({
       message: "OTP sent to your email",
     });
-
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -45,10 +64,12 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({
-      email,
-    });
+    const cleanEmail = email.trim().toLowerCase();
 
+    const user = await User.findOne({
+      email: cleanEmail,
+    });
+    console.log("USER FROM DB:", user);
     if (!user) {
       return res.status(404).json({
         message: "User not found",
@@ -58,6 +79,12 @@ exports.login = async (req, res) => {
     if (user.isBlocked) {
       return res.status(403).json({
         message: "Account is blocked",
+      });
+    }
+
+    if (!user.isVerified) {
+      return res.status(403).json({
+        message: "Please verify your email first.",
       });
     }
 
@@ -72,6 +99,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       {
         id: user._id,
+        name: user.name, 
         role: user.role,
       },
       process.env.JWT_SECRET,
@@ -95,7 +123,6 @@ exports.login = async (req, res) => {
   }
 };
 
-
 exports.forgotPassword = async (req, res) => {
   try {
     const { email, phone } = req.body;
@@ -103,7 +130,9 @@ exports.forgotPassword = async (req, res) => {
     console.log("BODY:", req.body);
 
     const query = {};
-    if (email) query.email = email;
+    if (email) {
+      query.email = email.trim().toLowerCase();
+    }
     if (phone) query.phone = phone;
 
     const user = await User.findOne(query);
@@ -128,7 +157,6 @@ exports.forgotPassword = async (req, res) => {
     res.json({
       message: "OTP sent successfully",
     });
-
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -158,12 +186,13 @@ exports.forgotPassword = async (req, res) => {
 exports.verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
-
-    const user = await User.findOne({ email });
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: cleanEmail });
 
     if (
       !user ||
       user.otp !== otp ||
+      !user.otpExpire ||
       user.otpExpire < Date.now()
     ) {
       return res.status(400).json({
@@ -178,7 +207,6 @@ exports.verifyOtp = async (req, res) => {
     await user.save();
 
     res.json({ message: "Email verified successfully" });
-
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -188,10 +216,11 @@ exports.resetPassword = async (req, res) => {
   try {
     const { email, phone, password } = req.body;
 
-    const user = await User.findOne({
-      $or: [{ email }, { phone }],
-    });
+    const cleanEmail = email?.trim().toLowerCase();
 
+    const user = await User.findOne({
+      $or: [{ email: cleanEmail }, { phone }],
+    });
     if (!user) {
       return res.status(404).json({
         message: "User not found",

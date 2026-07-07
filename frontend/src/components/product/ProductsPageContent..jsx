@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 
 import {
   Box,
@@ -20,7 +19,7 @@ import {
   Button,
   Divider,
 } from "@mui/material";
-
+import { useRouter, useSearchParams } from "next/navigation";
 import TuneIcon from "@mui/icons-material/Tune";
 import CloseIcon from "@mui/icons-material/Close";
 
@@ -30,47 +29,76 @@ import ProductFilters from "@/components/product/ProductFilters";
 import EmptyState from "@/components/common/EmptyState";
 import { API_URL } from "@/lib/api";
 
-export default function ProductsPageContent()  {
+export default function ProductsPageContent() {
   const [productList, setProductList] = useState([]);
-  const [search, setSearch] = useState("");
+
   const [sortBy, setSortBy] = useState("");
-  const [category, setCategory] = useState("");
-  const [filterType, setFilterType] = useState("all");
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [wishlistMap, setWishlistMap] = useState({});
   const searchParams = useSearchParams();
-  const [page, setPage] = useState(1);
-const [totalPages, setTotalPages] = useState(1);
-const [totalProducts, setTotalProducts] = useState(0);
-const limit = 12;
 
+  const search = searchParams.get("search") || "";
   const selectedCategory = searchParams.get("category") || "";
   const selectedType = searchParams.get("type") || "";
-/*   const matchesCategory = selectedCategory
+  const category = selectedCategory;
+  const filterType = selectedType || "";
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const limit = 12;
+  const router = useRouter();
+  const updateURL = (key, value) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (value) params.set(key, value);
+    else params.delete(key);
+
+    router.push(`/products?${params.toString()}`);
+  };
+
+  /*   const matchesCategory = selectedCategory
     ? productList.category?.toLowerCase() === selectedCategory.toLowerCase()
     : true;
  */
-  const pageTitle = selectedCategory
-    ? `${selectedCategory} Collection`
-    : selectedType === "new-arrivals"
-      ? "New Arrivals"
-      : selectedType === "sale"
-        ? "Sale Products"
-        : "All Products";
+  const pageTitle = search
+    ? `Search results for "${search}"`
+    : selectedCategory
+      ? `${selectedCategory} Collection`
+      : selectedType === "new-arrivals"
+        ? "New Arrivals"
+        : selectedType === "sale"
+          ? "Sale Products"
+          : "All Products";
+  const searchWords = search
+    .toLowerCase()
+    .split(" ")
+    .filter((w) => w.length > 1);
 
   const filteredProducts = useMemo(() => {
     return (productList || [])
       .filter((productList) => {
-        const matchesSearch = productList?.name
-          ?.toLowerCase()
-          ?.includes(search.toLowerCase());
+        const matchesSearch =
+          searchWords.length === 0
+            ? true
+            : searchWords.every((word) => {
+                const name = productList?.name?.toLowerCase() || "";
+                const category = productList?.category?.toLowerCase() || "";
+                const description =
+                  productList?.description?.toLowerCase() || "";
+
+                return (
+                  name.includes(word) ||
+                  category.includes(word) ||
+                  description.includes(word)
+                );
+              });
 
         const matchesCategory = selectedCategory
-          ? productList?.category?.toLowerCase() ===
-            selectedCategory.toLowerCase()
-          : category
-            ? productList?.category?.toLowerCase() === category.toLowerCase()
-            : true;
+          ? productList.category
+              ?.toLowerCase()
+              .includes(selectedCategory.toLowerCase())
+          : true;
 
         const matchesUrlType =
           selectedType === "new-arrivals"
@@ -79,15 +107,17 @@ const limit = 12;
               ? productList.isSale
               : true;
 
-        const matchesType =
-          filterType === "new"
-            ? productList.isNewArrival
-            : filterType === "sale"
-              ? productList.isSale
-              : true;
+        /*   const matchesType =
+  selectedType === "new-arrivals"
+    ? productList.isNewArrival
+    : selectedType === "sale"
+    ? productList.isSale
+    : true; */
 
         return (
-          matchesSearch && matchesCategory && matchesUrlType && matchesType
+          matchesSearch &&
+          matchesCategory &&
+          matchesUrlType /*  && matchesType */
         );
       })
       .sort((a, b) => {
@@ -112,51 +142,52 @@ const limit = 12;
     filterType,
   ]);
 
-const fetchProducts = async () => {
-  try {
-    const query = new URLSearchParams({
-      page,
-      limit,
-      search,
-      category,
-      type: filterType,
-    });
+  const fetchProducts = async () => {
+    try {
+      const query = new URLSearchParams({
+        page,
+        limit,
+        category: selectedCategory || "",
+        type: selectedType,
+        search,
+      });
 
-    const res = await fetch(
-      `${API_URL}/products?${query.toString()}`
-    );
+      const res = await fetch(`${API_URL}/products?${query.toString()}`);
+      const data = await res.json();
 
-    const data = await res.json();
+      setProductList(data.products || []);
+      setTotalPages(data.totalPages || 1);
+      setTotalProducts(data.total || 0);
+    } catch (err) {
+      console.log("Error loading products", err);
+    }
+  };
 
-    setProductList(Array.isArray(data.products) ? data.products : []);
-    setTotalPages(data.totalPages || 1);
-    setTotalProducts(data.total || 0);
-  } catch (err) {
-    console.log("Error loading products", err);
-  }
-};
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [page]);
 
-useEffect(() => {
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}, [page]);
+  useEffect(() => {
+    const delay = setTimeout(() => {
+      fetchProducts();
+    }, 300);
 
-useEffect(() => {
-  const delay = setTimeout(() => {
-    fetchProducts();
-  }, 300);
+    return () => clearTimeout(delay);
+  }, [page, search, selectedCategory, selectedType]);
 
-  return () => clearTimeout(delay);
-}, [page, search, category, filterType]);
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages || 1);
+    }
+  }, [totalPages]);
 
-useEffect(() => {
-  if (page > totalPages) {
-    setPage(totalPages || 1);
-  }
-}, [totalPages]);
+  useEffect(() => {
+    setPage(1);
+  }, [search, category, filterType]);
 
-useEffect(() => {
-  setPage(1);
-}, [search, category, filterType]);
+  useEffect(() => {
+    setPage(1);
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchWishlist = async () => {
@@ -185,10 +216,10 @@ useEffect(() => {
     <Stack spacing={2} direction={{ xs: "column", md: "row" }}>
       <Box flex={2}>
         <ProductFilters
-          search={search}
-          setSearch={setSearch}
           category={category}
-          setCategory={setCategory}
+          search={search}
+          filterType={filterType}
+          updateURL={updateURL}
         />
       </Box>
 
@@ -212,12 +243,13 @@ useEffect(() => {
         <FormControl fullWidth size="small">
           <InputLabel>Type</InputLabel>
           <Select
-            value={filterType}
+            select
             label="Type"
-            onChange={(e) => setFilterType(e.target.value)}
+            value={selectedType || ""}
+            onChange={(e) => updateURL("type", e.target.value)}
           >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="new">New Arrivals</MenuItem>
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="new-arrivals">New Arrivals</MenuItem>
             <MenuItem value="sale">Sale</MenuItem>
           </Select>
         </FormControl>
@@ -251,13 +283,19 @@ useEffect(() => {
           <Box>
             <Typography
               variant="h4"
-              fontWeight={700}
-              sx={{ fontSize: { xs: "1.5rem", md: "2.125rem" } }}
+              fontWeight={600}
+              sx={{ fontSize: { xs: "1.5rem", md: "1.8rem" } }}
             >
               {pageTitle}
             </Typography>
             <Typography color="text.secondary" mt={0.5} sx={{ fontSize: 14 }}>
-              Showing <strong>{filteredProducts.length}</strong> products
+              Showing <strong>{filteredProducts.length}</strong> results
+              {search && (
+                <span>
+                  {" "}
+                  for "<b>{search}</b>"
+                </span>
+              )}
             </Typography>
           </Box>
 
@@ -308,36 +346,79 @@ useEffect(() => {
         )}
       </Container>
 
-      <Stack direction="row" spacing={1} justifyContent="center" mt={4}>
+     <Stack
+  direction="row"
+  spacing={1}
+  justifyContent="center"
+  alignItems="center"
+  mt={4}
+  sx={{
+    flexWrap: "wrap",
+    gap: 1,
+  }}
+>
+  {/* Prev */}
   <Button
     disabled={page === 1}
-    onClick={() => setPage((prev) => prev - 1)}
+    onClick={() => setPage((p) => p - 1)}
     variant="outlined"
+    size="small"
+    sx={{
+      borderRadius: 1,
+      textTransform: "none",
+    }}
   >
     Prev
   </Button>
-{Array.from({ length: totalPages }, (_, i) => {
-  const pageNumber = i + 1;
 
-  return (
-    <Button
-      key={i}
-      variant={page === pageNumber ? "contained" : "outlined"}
-      onClick={() => setPage(pageNumber)}
-    >
-      {pageNumber}
-    </Button>
-  );
-})}
+  {/* Pages (clean range UI) */}
+  {Array.from({ length: totalPages }, (_, i) => i + 1)
+    .filter((p) => {
+      return (
+        p === 1 ||
+        p === totalPages ||
+        Math.abs(p - page) <= 1
+      );
+    })
+    .map((pageNumber, idx, arr) => (
+      <>
+        {/* ellipsis */}
+        {idx > 0 && pageNumber - arr[idx - 1] > 1 && (
+          <span style={{ padding: "0 6px" }}>...</span>
+        )}
+
+        <Button
+          key={pageNumber}
+          onClick={() => setPage(pageNumber)}
+          variant={page === pageNumber ? "contained" : "outlined"}
+          size="small"
+          sx={{
+            bgcolor:"black",
+            minWidth: 36,
+            borderRadius: "10px",
+            fontWeight: 600,
+            textTransform: "none",
+          }}
+        >
+          {pageNumber}
+        </Button>
+      </>
+    ))}
+
+  {/* Next */}
   <Button
     disabled={page === totalPages}
-    onClick={() => setPage((prev) => prev + 1)}
+    onClick={() => setPage((p) => p + 1)}
     variant="outlined"
+    size="small"
+    sx={{
+      borderRadius: 1,
+      textTransform: "none",
+    }}
   >
     Next
   </Button>
 </Stack>
-
       {/* Mobile filter drawer */}
       <Drawer
         anchor="bottom"
@@ -390,7 +471,8 @@ useEffect(() => {
               "&:hover": { bgcolor: "#333" },
             }}
           >
-           Showing <strong>{filteredProducts.length}</strong> of <strong>{totalProducts}</strong> products
+            Showing <strong>{filteredProducts.length}</strong> of{" "}
+            <strong>{totalProducts}</strong> products
           </Button>
         </Box>
       </Drawer>
