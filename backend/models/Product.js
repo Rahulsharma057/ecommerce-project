@@ -1,81 +1,142 @@
 const mongoose = require("mongoose");
 
+
 const productSchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-    },
-
-    price: {
-      type: Number,
-      required: true,
-    },
-    reviews: [
-  {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-    name: String,
-    rating: Number,
-    comment: String,
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
+{
+  name:{
+    type:String,
+    required:true,
   },
-],
 
-numReviews: {
-  type: Number,
-  default: 0,
-},
 
-ratings: {
-  type: Number,
-  default: 0,
-},
+  price:{
+    type:Number,
+    required:true,
+  },
 
-stock: {
-  type: Number,
-  required: true,
-  default: 0,
-},
 
-    category: {
-      type: String,
-      required: true,
-    },
+  originalPrice:{
+    type:Number,
+    default:0,
+  },
 
-    isNewArrival: {
-      type: Boolean,
-      default: false,
-    },
 
-    isSale: {
-      type: Boolean,
-      default: false,
-    },
+  discount:{
+    type:Number,
+    default:0,
+  },
 
-    images: [
-      {
-        type: String,
+
+  category:{
+    type:String,
+    required:true,
+  },
+
+
+  fabric:{
+    type:String,
+    default:"",
+  },
+
+
+  sizes:[
+    {
+      type:String
+    }
+  ],
+
+
+  colors:[
+    {
+      type:String
+    }
+  ],
+
+
+  stock:{
+    type:Number,
+    required:true,
+    default:0,
+  },
+
+
+  images:[
+    {
+      type:String
+    }
+  ],
+
+
+
+  description:{
+    type:String,
+    default:"",
+  },
+
+
+
+  isNewArrival:{
+    type:Boolean,
+    default:false,
+  },
+
+
+  isSale:{
+    type:Boolean,
+    default:false,
+  },
+
+
+  isFeatured:{
+    type:Boolean,
+    default:false,
+  },
+
+
+
+  reviews:[
+    {
+      userId:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"User",
       },
-    ],
-      isFeatured: {
-    type: Boolean,
-    default: false,
+
+      name:String,
+
+      rating:Number,
+
+      comment:String,
+
+      createdAt:{
+        type:Date,
+        default:Date.now,
+      }
+
+    }
+  ],
+
+
+
+  numReviews:{
+    type:Number,
+    default:0,
   },
 
-    description: {
-      type: String,
-      default: "",
-    },
-  },
-  {
-    timestamps: true,
+
+  ratings:{
+    type:Number,
+    default:0,
   }
+
+
+},
+{
+ timestamps:true
+}
 );
 
-module.exports = mongoose.model("Product", productSchema);
+
+module.exports = mongoose.model(
+"Product",
+productSchema
+);

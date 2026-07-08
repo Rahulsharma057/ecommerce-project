@@ -1,5 +1,5 @@
 const router = require("express").Router();
-
+const uploadImage = require("../middleware/uploadImage");
 const {
   addProduct,
   getProducts,
@@ -19,7 +19,11 @@ console.log({
 });
 const authMiddleware = require("../middleware/authMiddleware");
 router.get("/featured", getFeaturedProducts);
-router.post("/add", addProduct);
+router.post(
+  "/add",
+  uploadImage.array("images",10),
+  addProduct
+);
 router.get("/", getProducts);
 router.get("/related/:id", getRelatedProducts);
 router.post(
@@ -32,7 +36,11 @@ router.get(
   getNewArrivals
 );
 router.get("/:id", getSingleProduct);
-router.put("/:id", updateProduct);
+router.put(
+  "/:id",
+  uploadImage.array("images",10),
+  updateProduct
+);
 router.delete("/:id", deleteProduct);
 
 module.exports = router;

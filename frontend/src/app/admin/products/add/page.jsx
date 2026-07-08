@@ -26,7 +26,12 @@ export default function AddProductPage() {
     isNewArrival: false,
     isSale: false,
     isFeatured: false,
-    images: [""],
+    images:[
+  {
+    url:"",
+    file:null
+  }
+],
   });
 
   const params = useParams();
@@ -43,31 +48,70 @@ export default function AddProductPage() {
     });
   };
 
-  const handleImageChange = (index, value) => {
-    const updatedImages = [...form.images];
-    updatedImages[index] = value;
+ const handleImageChange = (index,value)=>{
 
-    setForm({
-      ...form,
-      images: updatedImages,
-    });
-  };
+  const updatedImages=[...form.images];
 
-  const addImageField = () => {
-    setForm({
-      ...form,
-      images: [...form.images, ""],
-    });
-  };
+  updatedImages[index].url=value;
 
-  const removeImageField = (index) => {
-    const updatedImages = form.images.filter((_, i) => i !== index);
+  setForm({
+    ...form,
+    images:updatedImages
+  });
 
-    setForm({
-      ...form,
-      images: updatedImages,
-    });
-  };
+};
+
+
+
+const handleFileChange=(index,e)=>{
+
+  const file=e.target.files[0];
+
+  const updatedImages=[...form.images];
+
+  updatedImages[index].file=file;
+
+  setForm({
+    ...form,
+    images:updatedImages
+  });
+
+};
+
+
+
+const addImageField=()=>{
+
+ setForm({
+  ...form,
+  images:[
+    ...form.images,
+    {
+      url:"",
+      file:null
+    }
+  ]
+ });
+
+};
+
+
+
+const removeImageField=(index)=>{
+
+ const updatedImages=form.images.filter(
+  (_,i)=>i!==index
+ );
+
+
+ setForm({
+  ...form,
+  images:updatedImages
+ });
+
+};
+
+
 
   useEffect(() => {
     if (!isEdit) return;
@@ -88,53 +132,154 @@ export default function AddProductPage() {
         isNewArrival: data.isNewArrival || false,
         isSale: data.isSale || false,
         isFeatured: data.isFeatured || false,
-        images: data.images?.length > 0 ? data.images : [""],
+       images:
+data.images?.length
+?
+data.images.map((img)=>({
+ url:img,
+ file:null
+}))
+:
+[
+ {
+  url:"",
+  file:null
+ }
+],
       });
     };
 
     fetchProduct();
   }, [params.id]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+ const handleSubmit = async(e)=>{
 
-    const payload = {
-      ...form,
-      price: Number(form.price),
-      stock: Number(form.stock),
-      images: form.images.filter((img) => img.trim() !== ""),
-    };
+e.preventDefault();
 
-    try {
-      let res;
 
-      if (isEdit) {
-        res = await fetch(`${API_URL}/products/${params.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        res = await fetch(`${API_URL}/products/add`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-      }
+const formData=new FormData();
 
-      if (res.ok) {
-        alert(isEdit ? "Product Updated" : "Product Added");
 
-        router.push("/admin/products");
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  };
+formData.append("name",form.name);
+
+formData.append(
+"price",
+Number(form.price)
+);
+
+
+formData.append(
+"stock",
+Number(form.stock)
+);
+
+
+formData.append(
+"category",
+form.category
+);
+
+
+formData.append(
+"description",
+form.description
+);
+
+
+formData.append(
+"isNewArrival",
+form.isNewArrival
+);
+
+
+formData.append(
+"isSale",
+form.isSale
+);
+
+
+formData.append(
+"isFeatured",
+form.isFeatured
+);
+
+
+
+form.images.forEach((img)=>{
+
+
+if(img.file){
+
+formData.append(
+"images",
+img.file
+);
+
+}
+
+
+if(img.url){
+
+formData.append(
+"imageUrls",
+img.url
+);
+
+}
+
+
+});
+
+
+
+try{
+
+
+const res=await fetch(
+
+isEdit
+?
+`${API_URL}/products/${params.id}`
+:
+`${API_URL}/products/add`,
+
+{
+
+method:isEdit?"PUT":"POST",
+
+body:formData
+
+}
+
+);
+
+
+
+if(res.ok){
+
+alert(
+isEdit
+?
+"Product Updated"
+:
+"Product Added"
+);
+
+
+router.push("/admin/products");
+
+}
+
+
+}
+catch(err){
+
+console.log(err);
+
+}
+
+
+};
 
   return (
     <Box sx={{ bgcolor: "#f8f9fb", minHeight: "100vh", py: 2 }}>
@@ -228,30 +373,107 @@ export default function AddProductPage() {
                   Product Images
                 </Typography>
 
-                <Stack spacing={2}>
-                  {form.images.map((img, index) => (
-                    <Stack key={index} direction="row" spacing={2}>
-                      <TextField
-                        label={`Image URL ${index + 1}`}
-                        value={img}
-                        fullWidth
-                        onChange={(e) =>
-                          handleImageChange(index, e.target.value)
-                        }
-                      />
+               <Stack spacing={2}>
 
-                      {form.images.length > 1 && (
-                        <Button
-                          color="error"
-                          variant="outlined"
-                          onClick={() => removeImageField(index)}
-                        >
-                          Remove
-                        </Button>
-                      )}
-                    </Stack>
-                  ))}
-                </Stack>
+{
+form.images.map((img,index)=>(
+
+<Box key={index}>
+
+<Stack
+direction="row"
+spacing={2}
+alignItems="center"
+>
+
+
+<TextField
+
+label={`Image URL ${index+1}`}
+
+value={img.url}
+
+fullWidth
+
+onChange={(e)=>
+handleImageChange(
+index,
+e.target.value
+)
+}
+
+/>
+
+
+<Button
+variant="outlined"
+component="label"
+>
+
+Upload
+
+<input
+
+hidden
+
+type="file"
+
+accept="image/*"
+
+onChange={(e)=>
+handleFileChange(index,e)
+}
+
+/>
+
+</Button>
+
+
+{
+form.images.length>1 &&
+
+<Button
+
+color="error"
+
+variant="outlined"
+
+onClick={()=>
+removeImageField(index)
+}
+
+>
+Remove
+</Button>
+
+}
+
+
+</Stack>
+
+
+{
+img.file &&
+
+<Typography
+variant="caption"
+>
+
+Selected:
+{img.file.name}
+
+</Typography>
+
+}
+
+
+</Box>
+
+
+))
+}
+
+</Stack>
 
                 <Button
                   sx={{ mt: 2 }}

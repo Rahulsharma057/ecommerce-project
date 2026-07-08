@@ -1,15 +1,87 @@
 const Product = require("../models/Product");
 const User = require("../models/User");
+const cloudinary = require("../config/cloudinary");
 // ADD PRODUCT
-exports.addProduct = async (req, res) => {
-  try {
-    const product = await Product.create(req.body);
-    res.status(201).json(product);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+exports.addProduct = async(req,res)=>{
 
+try{
+
+
+let imageUrls=[];
+
+
+// uploaded files
+if(req.files && req.files.length>0){
+
+
+for(let file of req.files){
+
+
+const result =
+await cloudinary.uploader.upload(
+`data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+{
+folder:"products"
+}
+);
+
+
+imageUrls.push(result.secure_url);
+
+
+}
+
+}
+
+
+// URL images
+if(req.body.imageUrls){
+
+if(Array.isArray(req.body.imageUrls)){
+
+imageUrls=[
+...imageUrls,
+...req.body.imageUrls
+];
+
+}
+else{
+
+imageUrls.push(req.body.imageUrls);
+
+}
+
+}
+
+
+
+const product=await Product.create({
+
+...req.body,
+
+price:Number(req.body.price),
+
+stock:Number(req.body.stock),
+
+images:imageUrls
+
+});
+
+
+res.status(201).json(product);
+
+
+}
+catch(err){
+
+res.status(500).json({
+error:err.message
+});
+
+}
+
+
+};
 // GET ALL PRODUCTS
 exports.getProducts = async (req, res) => {
   try {
@@ -101,23 +173,119 @@ exports.getSingleProduct = async (req, res) => {
   }
 };
 
-exports.updateProduct = async (req, res) => {
-  try {
-    const product =
-      await Product.findByIdAndUpdate(
-        req.params.id,
-        req.body,
-        {
-          new: true,
-        }
-      );
+exports.updateProduct = async(req,res)=>{
 
-    res.json(product);
-  } catch (err) {
-    res.status(500).json({
-      error: err.message,
-    });
-  }
+try{
+
+
+let imageUrls=[];
+
+
+// old images
+const oldProduct =
+await Product.findById(req.params.id);
+
+
+if(oldProduct.images){
+
+imageUrls=[
+...oldProduct.images
+];
+
+}
+
+
+
+// new upload
+
+if(req.files && req.files.length){
+
+
+for(let file of req.files){
+
+
+const result =
+await cloudinary.uploader.upload(
+
+`data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+
+{
+folder:"products"
+}
+
+);
+
+
+imageUrls.push(
+result.secure_url
+);
+
+
+}
+
+}
+
+
+// URL images
+
+if(req.body.imageUrls){
+
+
+if(Array.isArray(req.body.imageUrls)){
+
+imageUrls=[
+...imageUrls,
+...req.body.imageUrls
+];
+
+}
+else{
+
+imageUrls.push(req.body.imageUrls);
+
+}
+
+}
+
+
+
+const product =
+await Product.findByIdAndUpdate(
+
+req.params.id,
+
+{
+
+...req.body,
+
+images:imageUrls,
+
+price:Number(req.body.price),
+
+stock:Number(req.body.stock)
+
+},
+
+{
+new:true
+}
+
+);
+
+
+res.json(product);
+
+
+}
+catch(err){
+
+res.status(500).json({
+error:err.message
+});
+
+}
+
+
 };
 
 
