@@ -51,7 +51,6 @@ export default function CareerTable({ data = [], reload }) {
   return (
     <Paper
       sx={{
-      mx:3,
         borderRadius: 3,
         overflow: "hidden",
       }}

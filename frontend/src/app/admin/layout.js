@@ -23,13 +23,10 @@ import ShoppingBagOutlinedIcon from "@mui/icons-material/ShoppingBagOutlined";
 import MarkEmailUnreadOutlinedIcon from "@mui/icons-material/MarkEmailUnreadOutlined";
 import PeopleOutlinedIcon from "@mui/icons-material/PeopleOutlined";
 import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
-import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
 import MenuIcon from "@mui/icons-material/Menu";
 import MenuOpenIcon from "@mui/icons-material/MenuOpen";
 import ContactMailOutlinedIcon from "@mui/icons-material/ContactMailOutlined";
 import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
-import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
-import ViewCarouselOutlinedIcon from "@mui/icons-material/ViewCarouselOutlined";
 const DRAWER_OPEN = 230;
 const DRAWER_CLOSED = 64;
 
@@ -65,53 +62,24 @@ const menus = [
     icon: <Inventory2OutlinedIcon fontSize="small" />,
   },
   {
-    name: "fashion-section",
-    href: "/admin/fashion-section",
-    icon: <Inventory2OutlinedIcon fontSize="small" />,
-  },
-
-  {
     name: "Contacts",
     href: "/admin/contact",
-    icon: <ContactMailOutlinedIcon fontSize="small" />,
-  },
-    {
-    name: "model-showcase",
-    href: "/admin/model-showcase",
     icon: <ContactMailOutlinedIcon fontSize="small" />,
   },
   {
     name: "Affiliates",
     href: "/admin/affiliates",
     icon: <GroupsOutlinedIcon fontSize="small" />,
-  },/* {
-  name: "Categories Highlights",
-  href: "/admin/category-highlights",
-  icon: <CategoryOutlinedIcon fontSize="small" />,
-}, */{
-  name: "Home Collections",
-  href: "/admin/home-collections",
-  icon: <ViewCarouselOutlinedIcon fontSize="small" />,
-},
+  },
   {
     name: "Press",
     href: "/admin/press",
-    icon: <CampaignOutlinedIcon fontSize="small" />,
-  }, {
-    name: "luxury-story",
-    href: "/admin/luxury-story",
     icon: <CampaignOutlinedIcon fontSize="small" />,
   },
   {
     name: "NewsLetter Emails",
     href: "/admin/newsletter",
     icon: <MarkEmailUnreadOutlinedIcon fontSize="small" />,
-  },
- 
-  {
-    name: "Advertisements",
-    href: "/admin/advertisements",
-    icon: <CampaignOutlinedIcon fontSize="small" />,
   },
 ];
 
@@ -177,31 +145,7 @@ export default function AdminLayout({ children }) {
         <Divider sx={{ borderColor: "#27272a" }} />
 
         {/* NAV ITEMS */}
-      <List
-  sx={{
-    px: 1,
-    flex: 1,
-    overflowY: "auto",
-    overflowX: "hidden",
-
-    "&::-webkit-scrollbar": {
-      width: 6,
-    },
-
-    "&::-webkit-scrollbar-track": {
-      background: "transparent",
-    },
-
-    "&::-webkit-scrollbar-thumb": {
-      background: "#3f3f46",
-      borderRadius: 10,
-    },
-
-    "&::-webkit-scrollbar-thumb:hover": {
-      background: "#52525b",
-    },
-  }}
->
+        <List sx={{ px: 1, flex: 1 }}>
           {menus.map((item) => {
             const isActive =
               item.href === "/admin"
@@ -222,7 +166,7 @@ export default function AdminLayout({ children }) {
                   <ListItemButton
                     sx={{
                       borderRadius: 1.5,
-                      // mb: 0.5,
+                     // mb: 0.5,
                       minHeight: 42,
                       px: 1.5,
                       justifyContent: open ? "flex-start" : "center",

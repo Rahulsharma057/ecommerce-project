@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Box, Container, Typography, Paper, IconButton ,Button,Stack} from "@mui/material";
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  IconButton,
+} from "@mui/material";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
-import Link from "next/link";
-import EastRoundedIcon from "@mui/icons-material/EastRounded";
+
 import ProductCard from "@/components/product/ProductCard";
 import EmptyState from "@/components/common/EmptyState";
 import { API_URL } from "@/lib/api";
@@ -19,7 +24,7 @@ export default function FeaturedProducts() {
   const fetchFeaturedProducts = async () => {
     try {
       const res = await fetch(
-        `${API_URL}/products/featured?page=1&limit=${limit}`,
+        `${API_URL}/products/featured?page=1&limit=${limit}`
       );
 
       const data = await res.json();
@@ -50,164 +55,116 @@ export default function FeaturedProducts() {
   };
 
   return (
-    <Box
+<Box sx={{ bgcolor: "#f8f9fb", minHeight: "100vh", py: 5 }}>
+  <Container maxWidth="xl">
+
+    {/* HEADER */}
+    <Typography
+      variant="h4"
+      fontWeight={700}
+      mb={4}
       sx={{
-        bgcolor: "#f8f9fb",
-        minHeight: "auto",
-        /* minHeight: "100vh",  */ py: 4,
+        letterSpacing: "-0.02em",
       }}
     >
-      <Container maxWidth="xl">
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          mb={4}
+      Featured Products
+    </Typography>
+
+    {productList.length > 0 ? (
+      <Box
+        sx={{
+          position: "relative",
+          bgcolor: "#fff",
+          borderRadius: 3,
+          p: { xs: 1.5, md: 2 },
+          boxShadow: "0 6px 20px rgba(0,0,0,0.04)",
+        }}
+      >
+        {/* LEFT ARROW */}
+        <IconButton
+          onClick={() => scrollByAmount("left")}
           sx={{
-            px: {
-              xs: "1",
-              sm: "1",
-              md: "2",
+            position: "absolute",
+            left: -12,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 5,
+            bgcolor: "#fff",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            width: 40,
+            height: 40,
+            "&:hover": {
+              bgcolor: "#f5f5f5",
+              transform: "translateY(-50%) scale(1.05)",
             },
           }}
         >
-          <Typography
-            variant="h4"
-            fontWeight={700}
-            sx={{
-              fontSize: {
-                xs: "1.70rem",
-                sm: "1.7rem",
-                md: "2.125rem",
-              },
-            }}
-          >
-            Featured Products
-          </Typography>
+          <ArrowBackIosNewIcon sx={{ fontSize: 16 }} />
+        </IconButton>
 
-          <Button
-            component={Link}
-            endIcon={<EastRoundedIcon />}
-            href="/products?section=new-arrivals"
-            sx={{
-              borderRadius: 0,
-              bgcolor: "transparent",
-              borderBottom: "1px solid #111",
-              px: 2,
-              color: "black",
-              textTransform: "none",
-              fontSize: {
-                xs: "0.72rem",
-                sm: "0.85rem",
-                md: "0.95rem",
-              },
-              fontWeight: 500,
-              "&:hover": {
-                bgcolor: "#111",
-                color: "#fff",
-                borderColor: "#111",
-              },
-            }}
-          >
-            View All
-          </Button>
-        </Stack>
-
-        {productList.length > 0 ? (
-          <Box
-            sx={{
-              position: "relative",
-              bgcolor: "#fff",
-              borderRadius: 3,
-              p: { xs: 1.5, md: 2 },
-              boxShadow: "0 6px 20px rgba(0,0,0,0.04)",
-            }}
-          >
-            {/* LEFT ARROW */}
-            <IconButton
-              onClick={() => scrollByAmount("left")}
-              sx={{
-                position: "absolute",
-                left: -12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                zIndex: 5,
-                bgcolor: "#fff",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                width: 40,
-                height: 40,
-                "&:hover": {
-                  bgcolor: "#f5f5f5",
-                  transform: "translateY(-50%) scale(1.05)",
-                },
-              }}
-            >
-              <ArrowBackIosNewIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-
-            {/* TRACK */}
+        {/* TRACK */}
+        <Box
+          ref={scrollRef}
+          sx={{
+            display: "flex",
+            gap: 2,
+            overflowX: "auto",
+            scrollBehavior: "smooth",
+            py: 1,
+            px: 1,
+            "&::-webkit-scrollbar": { display: "none" },
+          }}
+        >
+          {productList.map((product) => (
             <Box
-              ref={scrollRef}
+              key={product._id}
               sx={{
-                display: "flex",
-                gap: 2,
-                overflowX: "auto",
-                scrollBehavior: "smooth",
-                py: 1,
-                px: 1,
-                "&::-webkit-scrollbar": { display: "none" },
-              }}
-            >
-              {productList.map((product) => (
-                <Box
-                  key={product._id}
-                  sx={{
-                    flex: "0 0 auto",
-                    width: {
-                      xs: 160,
-                      sm: 200,
-                      md: 240,
-                      lg: 260,
-                    },
-                  }}
-                >
-                  <ProductCard
-                    product={product}
-                    wishlistMap={{}}
-                    setWishlistMap={() => {}}
-                  />
-                </Box>
-              ))}
-            </Box>
-
-            {/* RIGHT ARROW */}
-            <IconButton
-              onClick={() => scrollByAmount("right")}
-              sx={{
-                position: "absolute",
-                right: -12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                zIndex: 5,
-                bgcolor: "#fff",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                width: 40,
-                height: 40,
-                "&:hover": {
-                  bgcolor: "#f5f5f5",
-                  transform: "translateY(-50%) scale(1.05)",
+                flex: "0 0 auto",
+                width: {
+                  xs: 160,
+                  sm: 200,
+                  md: 240,
+                  lg: 260,
                 },
               }}
             >
-              <ArrowForwardIosIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          </Box>
-        ) : (
-          <Paper sx={{ py: 10, borderRadius: 4 }}>
-            <EmptyState title="No featured products found" />
-          </Paper>
-        )}
-      </Container>
-    </Box>
+              <ProductCard
+                product={product}
+                wishlistMap={{}}
+                setWishlistMap={() => {}}
+              />
+            </Box>
+          ))}
+        </Box>
+
+        {/* RIGHT ARROW */}
+        <IconButton
+          onClick={() => scrollByAmount("right")}
+          sx={{
+            position: "absolute",
+            right: -12,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 5,
+            bgcolor: "#fff",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            width: 40,
+            height: 40,
+            "&:hover": {
+              bgcolor: "#f5f5f5",
+              transform: "translateY(-50%) scale(1.05)",
+            },
+          }}
+        >
+          <ArrowForwardIosIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+      </Box>
+    ) : (
+      <Paper sx={{ py: 10, borderRadius: 4 }}>
+        <EmptyState title="No featured products found" />
+      </Paper>
+    )}
+  </Container>
+</Box>
   );
 }

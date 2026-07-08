@@ -96,8 +96,6 @@ export default function HeroSection() {
               </Link>
 
               <Button
-                component="a"
-  href="#lookbook"
                 variant="outlined"
                 size="large"
                 sx={{
