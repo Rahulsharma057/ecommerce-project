@@ -231,3 +231,29 @@ exports.getFeaturedProducts = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.getNewArrivals = async (req, res) => {
+  try {
+
+    const products = await Product.find({
+      isNewArrival: true
+    })
+    .sort({ createdAt: -1 })
+    .limit(Number(req.query.limit) || 20);
+
+
+    res.status(200).json({
+      success: true,
+      products
+    });
+
+
+  } catch (error) {
+
+    res.status(500).json({
+      success:false,
+      message:error.message
+    });
+
+  }
+};

@@ -4,36 +4,45 @@ const mongoose = require("mongoose");
 require("dotenv").config();
 
 const app = express();
+const path = require("path");
 const userRoutes = require("./routes/userRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
 const careerRoutes = require("./routes/careerRoutes");
 const contactRoutes = require("./routes/contactRoutes");
+const lookbookRoutes = require("./routes/lookbookRoutes");
+const luxuryStoryRoutes = require("./routes/luxuryStoryRoutes");
 const pressRoutes = require("./routes/pressRoutes");
 const newsletterRoutes = require("./routes/newsletterRoutes");
-const affiliateRoutes =
-require("./routes/affiliateRoutes");
+const homeCollectionRoutes = require("./routes/homeCollectionRoutes");
+const categoryHighlightRoutes = require("./routes/categoryHighlightRoutes");
+const advertisementRoutes = require("./routes/advertisementRoutes");
+const affiliateRoutes = require("./routes/affiliateRoutes");
+const modelShowcaseRoutes = require("./routes/modelShowcaseRoutes");
+const fashionSectionRoutes = require("./routes/fashionSectionRoutes");
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  }),
+);
 
-app.use(cors({
-  origin: true,
-  credentials: true,
-}));
 app.use(express.json());
+
+app.use("/api/luxury-story", luxuryStoryRoutes);
+app.use("/api/home-collections", homeCollectionRoutes);
+app.use("/api/category-highlights", categoryHighlightRoutes);
+app.use("/api/lookbook", lookbookRoutes);
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/users", userRoutes);
-app.use(
-  "/api/coupons",
-  require("./routes/couponRoutes")
-);
+app.use("/api/advertisements", advertisementRoutes);
+app.use("/api/coupons", require("./routes/couponRoutes"));
 app.use("/api/newsletter", newsletterRoutes);
-app.use(
-"/api/contact",
-contactRoutes
-);
-app.use(
-"/api/affiliate",
-affiliateRoutes
-);
+app.use("/api/contact", contactRoutes);
+app.use("/api/model-showcase", modelShowcaseRoutes);
+app.use("/api/fashion-section", fashionSectionRoutes);
+app.use("/api/affiliate", affiliateRoutes);
 app.use("/api/press", pressRoutes);
 app.use("/api/cart", require("./routes/cartRoutes"));
 app.use("/api/wishlist", require("./routes/wishlistRoutes"));
@@ -44,7 +53,6 @@ app.use("/api/career", careerRoutes);
 app.get("/", (req, res) => {
   res.send("🚀 Backend Running Successfully");
 });
-
 
 app.get("/api/test", (req, res) => {
   res.json({
