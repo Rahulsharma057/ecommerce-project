@@ -356,6 +356,99 @@ const review = {
   }
 };
 
+exports.updateProductReview = async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        message: "Product not found",
+      });
+    }
+
+    const review = product.reviews.find(
+      (r) => r.userId.toString() === req.user.id
+    );
+
+    if (!review) {
+      return res.status(404).json({
+        message: "Review not found",
+      });
+    }
+
+    // Update review
+    review.rating = Number(rating);
+    review.comment = comment;
+
+    // Recalculate rating & review count
+    product.numReviews = product.reviews.length;
+
+    product.ratings =
+      product.reviews.length > 0
+        ? product.reviews.reduce((acc, item) => acc + item.rating, 0) /
+          product.reviews.length
+        : 0;
+
+    await product.save();
+
+    res.json({
+      message: "Review updated successfully",
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+};
+
+exports.deleteProductReview = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        message: "Product not found",
+      });
+    }
+
+    const review = product.reviews.find(
+      (r) => r.userId.toString() === req.user.id
+    );
+
+    if (!review) {
+      return res.status(404).json({
+        message: "Review not found",
+      });
+    }
+
+    product.reviews = product.reviews.filter(
+      (r) => r.userId.toString() !== req.user.id
+    );
+
+    product.numReviews = product.reviews.length;
+
+    if (product.reviews.length > 0) {
+      product.ratings =
+        product.reviews.reduce((acc, item) => acc + item.rating, 0) /
+        product.reviews.length;
+    } else {
+      product.ratings = 0;
+    }
+
+    await product.save();
+
+    res.json({
+      message: "Review deleted successfully",
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+};
+
 exports.getRelatedProducts = async (req, res) => {
   const product = await Product.findById(req.params.id);
 

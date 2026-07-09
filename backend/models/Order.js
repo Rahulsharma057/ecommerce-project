@@ -74,11 +74,27 @@ const orderSchema = new mongoose.Schema(
     cancelledAt: {
       type: Date,
     },
-   
-    returnReason: {
+   returnReason: {
   type: String,
   default: "",
 },
+    returnDescription: {
+  type: String,
+  default: "",
+},
+
+returnImages: [
+  {
+    type: String,
+  }
+],
+returnTimeline: [
+  {
+    status: String,
+    message: String,
+    date: Date,
+  },
+],
 adminNote: {
   type: String,
   default: "",

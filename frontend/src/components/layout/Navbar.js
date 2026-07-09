@@ -149,6 +149,17 @@ export default function Navbar() {
               justifyContent: "center",
               fontSize: 12,
               fontWeight: 700,
+              "&:hover": {
+                backgroundColor: "black", // ya "transparent"
+                boxShadow: "none",
+                color: "#ffffff",
+                border: "1px solid black",
+                // transform: "translateY(-2px)",
+
+                "&::after": {
+                  width: "70%",
+                },
+              },
             }}
           >
             {getInitial(user.name)}
@@ -339,6 +350,17 @@ export default function Navbar() {
                         color: "white",
                         fontWeight: 700,
                         bgcolor: "#858282",
+                        "&:hover": {
+                          backgroundColor: "black", // ya "transparent"
+                          boxShadow: "none",
+                          color: "#ffffff",
+                          border: "1px solid black",
+                          // transform: "translateY(-2px)",
+
+                          "&::after": {
+                            width: "70%",
+                          },
+                        },
                       }}
                     >
                       {getInitial(user.name)}

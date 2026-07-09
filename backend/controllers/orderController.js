@@ -1,7 +1,7 @@
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
-
+const cloudinary = require("../config/cloudinary");
 
 
 // =========================
@@ -180,20 +180,81 @@ exports.updateOrderStatus = async (req, res) => {
 
 exports.requestReturn = async (req, res) => {
   try {
-    const { reason } = req.body;
+ const { description } = req.body;
 
     const order = await Order.findById(req.params.id);
 
-    if (!order) return res.status(404).json({ message: "Order not found" });
 
-    if (order.status !== "Delivered") {
-      return res.status(400).json({ message: "Only delivered orders can be returned" });
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found"
+      });
     }
 
+
+    if (order.status !== "Delivered") {
+      return res.status(400).json({
+        message: "Only delivered orders can be returned"
+      });
+    }
+
+
+
+    let returnImages = [];
+
+
+
+    // Upload return images to cloudinary
+    if (req.files && req.files.length > 0) {
+
+
+      for (let file of req.files) {
+
+
+        const result =
+          await cloudinary.uploader.upload(
+
+            `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+
+            {
+              folder: "returns"
+            }
+
+          );
+
+
+        returnImages.push(
+          result.secure_url
+        );
+
+
+      }
+
+    }
+
+
+
     order.returnStatus = "Requested";
+
     order.returnPickupStatus = "NotPicked";
-    order.returnReason = reason;
-    order.returnRequestedAt = new Date();
+
+
+    // description from frontend
+    order.returnDescription =
+      req.body.description || "";
+
+order.returnReason =
+      req.body.description || "";
+
+    // images
+    order.returnImages = returnImages || [];
+
+
+
+    order.returnRequestedAt =
+      new Date();
+
+
 
     order.returnTimeline = [
       ...(order.returnTimeline || []),
@@ -204,11 +265,25 @@ exports.requestReturn = async (req, res) => {
       },
     ];
 
+
+
     await order.save();
 
-    res.json({ message: "Return requested", order });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+
+
+    res.json({
+      message:"Return requested",
+      order
+    });
+
+
+
+  } catch(err){
+
+    res.status(500).json({
+      message:err.message
+    });
+
   }
 };
 exports.updateReturnStatus = async (req, res) => {

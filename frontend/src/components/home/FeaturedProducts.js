@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Box, Container, Typography, Paper, IconButton ,Button,Stack} from "@mui/material";
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  IconButton,
+  Button,
+  Stack,
+} from "@mui/material";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import Link from "next/link";
@@ -12,6 +20,7 @@ import { API_URL } from "@/lib/api";
 
 export default function FeaturedProducts() {
   const [productList, setProductList] = useState([]);
+  const [wishlistMap, setWishlistMap] = useState({});
   const scrollRef = useRef(null);
 
   const limit = 20; // slider ke liye ek hi baar zyada products le lo
@@ -24,7 +33,7 @@ export default function FeaturedProducts() {
 
       const data = await res.json();
 
-      console.log("FEATURED RESPONSE:", data);
+    //  console.log("FEATURED RESPONSE:", data);
 
       if (Array.isArray(data)) {
         setProductList(data);
@@ -38,7 +47,33 @@ export default function FeaturedProducts() {
 
   useEffect(() => {
     fetchFeaturedProducts();
+    fetchWishlist();
   }, []);
+
+  const fetchWishlist = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_URL}/wishlist`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+console.log("Wishlist Response:", data);
+      const map = {};
+
+(data || []).forEach((item) => {
+  map[item.productId._id] = item._id;
+});
+
+setWishlistMap(map);
+    } catch (err) {
+      console.log(err);
+    }
+  };
 
   const scrollByAmount = (direction) => {
     if (!scrollRef.current) return;
@@ -173,8 +208,8 @@ export default function FeaturedProducts() {
                 >
                   <ProductCard
                     product={product}
-                    wishlistMap={{}}
-                    setWishlistMap={() => {}}
+                    wishlistMap={wishlistMap}
+                    setWishlistMap={setWishlistMap}
                   />
                 </Box>
               ))}

@@ -13,39 +13,36 @@ import {
   Divider,
   Card,
   CardContent,
-  Box, IconButton 
+  Box,
+  IconButton,
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 import AddressList from "@/components/address/AddressList";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import OrderSummary from "@/components/checkout/OrderSummary";
 import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
+import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import { API_URL } from "@/lib/api";
+
 export default function CheckoutPage() {
   const router = useRouter();
-
   const [items, setItems] = useState([]);
-const [placingOrder, setPlacingOrder] = useState(false);
+  const [placingOrder, setPlacingOrder] = useState(false);
   const [addresses, setAddresses] = useState([]);
-
   const [selectedAddress, setSelectedAddress] = useState(null);
-
   const [paymentMethod, setPaymentMethod] = useState("COD");
-
   const [couponData, setCouponData] = useState(null);
   const [discount, setDiscount] = useState(0);
   const [couponCode, setCouponCode] = useState("");
-
+  const [confirmDialog, setConfirmDialog] = useState(false);
   const subtotal = items.reduce(
     (acc, item) => acc + item.price * item.quantity,
     0,
   );
-
   const shipping = subtotal >= 2000 ? 0 : 99;
-
   const tax = Math.round(subtotal * 0.05);
-
   const total = Math.max(subtotal + shipping + tax - discount, 0);
 
   useEffect(() => {
@@ -85,7 +82,7 @@ const [placingOrder, setPlacingOrder] = useState(false);
 
     for (let item of items) {
       if (item.stock === 0) {
-        alert(`❌ ${item.name} is out of stock`);
+        toast.error(`${item.name} is out of stock`);
         return null;
       }
 
@@ -99,7 +96,7 @@ const [placingOrder, setPlacingOrder] = useState(false);
       });
     }
 
-    if (hasChange) {
+    /*   if (hasChange) {
       const msg =
         "⚠️ Stock updated for some items:\n\n" +
         items
@@ -111,11 +108,9 @@ const [placingOrder, setPlacingOrder] = useState(false);
           .join("\n") +
         "\n\nDo you want to continue?";
 
-      const ok = window.confirm(msg);
-
-      if (!ok) return null;
+     
     }
-
+ */
     return updatedItems;
   };
 
@@ -158,7 +153,9 @@ const [placingOrder, setPlacingOrder] = useState(false);
 
   useEffect(() => {
     if (items.some((i) => i.quantity < 1)) {
-      alert("Some items were updated due to stock availability");
+      toast.warning(
+        "Some cart quantities were updated based on available stock.",
+      );
     }
   }, [items]);
 
@@ -170,7 +167,9 @@ const [placingOrder, setPlacingOrder] = useState(false);
 
       localStorage.removeItem("checkoutCoupon");
 
-      alert("Coupon removed because order amount changed.");
+      toast.info(
+        "Coupon has been removed because the minimum order amount is no longer met.",
+      );
     }
   }, [subtotal, couponData]);
 
@@ -211,7 +210,7 @@ const [placingOrder, setPlacingOrder] = useState(false);
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message);
+        toast.error(data.message);
         return;
       }
 
@@ -226,19 +225,22 @@ const [placingOrder, setPlacingOrder] = useState(false);
         }),
       );
 
-      alert("Coupon Applied");
+      toast.success("Coupon applied successfully.");
     } catch (err) {
       console.log(err);
     }
   };
 
   const handlePlaceOrder = async () => {
-        setPlacingOrder(true);
     if (!selectedAddress) {
-      alert("Please add address");
+      toast.warning("Please select a delivery address.");
       return;
     }
-
+    if (items.length === 0) {
+      toast.warning("Your cart is empty.");
+      return;
+    }
+    setPlacingOrder(true);
     const validatedItems = validateStock();
 
     if (!validatedItems) return; // stop checkout
@@ -260,209 +262,226 @@ const [placingOrder, setPlacingOrder] = useState(false);
         total,
       }),
     });
-
     const data = await res.json();
+    if (!res.ok) {
+      setPlacingOrder(false);
+      toast.error(data.message || "Failed to place order");
+      return;
+    }
 
     localStorage.removeItem("buyNow");
     localStorage.removeItem("checkoutCoupon");
     localStorage.removeItem("appliedCoupon");
     setPlacingOrder(false);
+    toast.success("Your order has been placed successfully.");
+    localStorage.setItem("orderDetailsFrom", "checkout");
     router.push(`/profile/orders/${data._id}`);
   };
-const removeCoupon = () => {
-  setCouponData(null);
-  setDiscount(0);
-  setCouponCode("");
+  const removeCoupon = () => {
+    setCouponData(null);
+    setDiscount(0);
+    setCouponCode("");
 
-  localStorage.removeItem("appliedCoupon");
-  localStorage.removeItem("checkoutCoupon");
+    localStorage.removeItem("appliedCoupon");
+    localStorage.removeItem("checkoutCoupon");
 
-  window.dispatchEvent(new Event("coupon-update"));
-};
-
-  useEffect(() => {
-  const handleCouponUpdate = () => {
-    const saved = localStorage.getItem("checkoutCoupon");
-
-    if (!saved) {
-      setCouponData(null);
-      setDiscount(0);
-      setCouponCode("");
-      return;
-    }
-
-    const data = JSON.parse(saved);
-
-    setCouponData(data.coupon);
-    setDiscount(data.discount);
+    window.dispatchEvent(new Event("coupon-update"));
   };
 
-  window.addEventListener("coupon-update", handleCouponUpdate);
+  useEffect(() => {
+    const handleCouponUpdate = () => {
+      const saved = localStorage.getItem("checkoutCoupon");
 
-  return () =>
-    window.removeEventListener("coupon-update", handleCouponUpdate);
-}, []);
+      if (!saved) {
+        setCouponData(null);
+        setDiscount(0);
+        setCouponCode("");
+        return;
+      }
+
+      const data = JSON.parse(saved);
+
+      setCouponData(data.coupon);
+      setDiscount(data.discount);
+    };
+
+    window.addEventListener("coupon-update", handleCouponUpdate);
+
+    return () =>
+      window.removeEventListener("coupon-update", handleCouponUpdate);
+  }, []);
 
   return (
     <Box
-  sx={{
-    minHeight: "100vh",
-    bgcolor: "#f6f8fb",
-    py: 2,
-    px:1,
-  }}
->
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Grid container spacing={4}>
-       <Grid item xs={12} md={8}>
-          <Stack
-  direction="row"
-  spacing={2}
-  alignItems="center"
-  mb={4}
->
-  <IconButton
-    onClick={() => router.back()}
-    sx={{
-
-      width: 46,
-      height: 46,
-    }}
-  >
-    <ArrowBackIcon />
-  </IconButton>
-
-  <Box>
-    <Typography fontSize={28} fontWeight={800}>
-      Checkout
-    </Typography>
-
-    <Typography color="text.secondary">
-      Complete your order securely
-    </Typography>
-  </Box>
-</Stack>
-          <Paper sx={{ p: 3 }}>
-   <Stack
-  direction="row"
-  alignItems="center"
-  spacing={1}
-  mb={3}
->
-  <LocalShippingOutlinedIcon
-    sx={{
-      color: "#2f3132",
-      fontSize: 28,
-    }}
-  />
-
-  <Typography variant="h5" fontWeight={700}>
-    Delivery Address
-  </Typography>
-</Stack>
-
-            {addresses.length === 0 ? (
-              <>
-                <Typography>No address found.</Typography>
-
-                <Button
-                  sx={{
-                    mt: 2,
-                  }}
-                  variant="contained"
-                  onClick={() => router.push("/profile/address")}
-                >
-                  Add Address
-                </Button>
-              </>
-            ) : (
-              <RadioGroup>
-             <AddressList
-  addresses={addresses}
-  selectedAddress={selectedAddress}
-  onSelect={setSelectedAddress}
-/>
-              </RadioGroup>
-            )}
-          </Paper>
-
-      <Paper
-  elevation={0}
-  sx={{
-    p: 3,
-    mt: 3,
-    borderRadius: 3,
-    border: "1px solid #e5e7eb",
-    background: "#fff",
-  }}
->
-  <Typography variant="h6" fontWeight={700} mb={2}>
-    Payment Method
-  </Typography>
-
-  <RadioGroup
-    value={paymentMethod}
-    onChange={(e) => setPaymentMethod(e.target.value)}
-  >
-    <Box
       sx={{
-        border: "1px solid #e5e7eb",
-        borderRadius: 2,
-        p: 2,
-        display: "flex",
-        alignItems: "center",
-        transition: "0.2s",
-        "&:hover": {
-          borderColor: "primary.main",
-          backgroundColor: "#f9fafb",
-        },
+        minHeight: "100vh",
+        bgcolor: "#f6f8fb",
+        py: 2,
+        px: 1,
       }}
     >
-      <FormControlLabel
-        value="COD"
-        control={<Radio />}
-        label={
-          <Box>
-            <Typography fontWeight={600}>
-              Cash on Delivery
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Pay when your order is delivered to your doorstep
-            </Typography>
-          </Box>
-        }
-        sx={{ m: 0 }}
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={8}>
+            <Stack direction="row" spacing={2} alignItems="center" mb={4}>
+              <IconButton
+                onClick={() => router.back()}
+                sx={{
+                  width: 46,
+                  height: 46,
+                }}
+              >
+                <ArrowBackIcon />
+              </IconButton>
+
+              <Box>
+                <Typography fontSize={28} fontWeight={800}>
+                  Checkout
+                </Typography>
+
+                <Typography color="text.secondary">
+                  Complete your order securely
+                </Typography>
+              </Box>
+            </Stack>
+            <Paper sx={{ p: 3 }}>
+              <Stack direction="row" alignItems="center" spacing={1} mb={3}>
+                <LocalShippingOutlinedIcon
+                  sx={{
+                    color: "#2f3132",
+                    fontSize: 28,
+                  }}
+                />
+
+                <Typography variant="h5" fontWeight={700}>
+                  Delivery Address
+                </Typography>
+              </Stack>
+
+              {addresses.length === 0 ? (
+                <>
+                  <Typography>No address found.</Typography>
+
+                  <Button
+                    sx={{
+                      mt: 2,
+                    }}
+                    variant="contained"
+                    onClick={() => router.push("/profile/address")}
+                  >
+                    Add Address
+                  </Button>
+                </>
+              ) : (
+                <RadioGroup>
+                  <AddressList
+                    addresses={addresses}
+                    selectedAddress={selectedAddress}
+                    onSelect={setSelectedAddress}
+                  />
+                </RadioGroup>
+              )}
+            </Paper>
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                mt: 3,
+                borderRadius: 3,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+              }}
+            >
+              <Typography variant="h6" fontWeight={700} mb={2}>
+                Payment Method
+              </Typography>
+
+              <RadioGroup
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+              >
+                <Box
+                  sx={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 2,
+                    p: 2,
+                    display: "flex",
+                    alignItems: "center",
+                    transition: "0.2s",
+                    "&:hover": {
+                      borderColor: "primary.main",
+                      backgroundColor: "#f9fafb",
+                    },
+                  }}
+                >
+                  <FormControlLabel
+                    value="COD"
+                    control={<Radio />}
+                    label={
+                      <Box>
+                        <Typography fontWeight={600}>
+                          Cash on Delivery
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Pay when your order is delivered to your doorstep
+                        </Typography>
+                      </Box>
+                    }
+                    sx={{ m: 0 }}
+                  />
+                </Box>
+              </RadioGroup>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <OrderSummary
+              items={items}
+              subtotal={subtotal}
+              shipping={shipping}
+              tax={tax}
+              total={total}
+              couponCode={couponCode}
+              setCouponCode={setCouponCode}
+              couponData={couponData}
+              discount={discount}
+              onApplyCoupon={handleApplyCoupon}
+              onRemoveCoupon={() => {
+                setCouponData(null);
+                setDiscount(0);
+                setCouponCode("");
+
+                localStorage.removeItem("checkoutCoupon");
+                localStorage.removeItem("appliedCoupon");
+              }}
+              placingOrder={placingOrder}
+              onPlaceOrder={() => setConfirmDialog(true)}
+            />
+          </Grid>
+        </Grid>
+      </Container>
+      <ConfirmationDialog
+        open={confirmDialog}
+        title="Confirm Your Order"
+        message={`Please review your order before placing it.
+
+✓ Delivery Address Selected
+✓ Payment Method: Cash on Delivery
+✓ Total Amount: ₹${total}
+
+Once your order is placed, it will be processed immediately and cannot be modified.
+
+Do you want to continue?`}
+        confirmText="Place Order"
+        cancelText="Review Order"
+        confirmColor="success"
+        onCancel={() => setConfirmDialog(false)}
+        onConfirm={() => {
+          setConfirmDialog(false);
+          handlePlaceOrder();
+        }}
       />
     </Box>
-  </RadioGroup>
-</Paper>
-        </Grid>
-
-<Grid item xs={12} md={4}>
-  <OrderSummary
-    items={items}
-    subtotal={subtotal}
-    shipping={shipping}
-    tax={tax}
-    total={total}
-    couponCode={couponCode}
-    setCouponCode={setCouponCode}
-    couponData={couponData}
-    discount={discount}
-    onApplyCoupon={handleApplyCoupon}
-    onRemoveCoupon={() => {
-      setCouponData(null);
-      setDiscount(0);
-      setCouponCode("");
-
-      localStorage.removeItem("checkoutCoupon");
-      localStorage.removeItem("appliedCoupon");
-    }}
-      placingOrder={placingOrder}
-    onPlaceOrder={handlePlaceOrder}
-  />
-</Grid>
-      </Grid>
-    </Container></Box>
   );
 }

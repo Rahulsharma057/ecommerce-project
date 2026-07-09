@@ -23,7 +23,7 @@ import { API_URL } from "@/lib/api";
 
 export default function NewArrivals() {
   const [products, setProducts] = useState([]);
-
+const [wishlistMap, setWishlistMap] = useState({});
   const scrollRef = useRef(null);
 
   const fetchNewArrivals = async () => {
@@ -40,9 +40,37 @@ export default function NewArrivals() {
     }
   };
 
-  useEffect(() => {
-    fetchNewArrivals();
-  }, []);
+useEffect(() => {
+  fetchNewArrivals();
+  fetchWishlist();
+}, []);
+
+  const fetchWishlist = async () => {
+  const token = localStorage.getItem("token");
+  if (!token) return;
+
+  try {
+    const res = await fetch(`${API_URL}/wishlist`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json();
+
+    const list = Array.isArray(data) ? data : data.products || [];
+
+    const map = {};
+
+    list.forEach((item) => {
+      map[item.productId._id] = item._id;
+    });
+
+    setWishlistMap(map);
+  } catch (err) {
+    console.log(err);
+  }
+};
 
   const scroll = (direction) => {
     if (!scrollRef.current) return;
@@ -180,11 +208,11 @@ export default function NewArrivals() {
                     },
                   }}
                 >
-                  <ProductCard
-                    product={product}
-                    wishlistMap={{}}
-                    setWishlistMap={() => {}}
-                  />
+                 <ProductCard
+  product={product}
+  wishlistMap={wishlistMap}
+  setWishlistMap={setWishlistMap}
+/>
                 </Box>
               ))}
             </Box>

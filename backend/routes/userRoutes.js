@@ -18,10 +18,16 @@ const {
 } = require("../controllers/userAdminController");
 
 const protect = require("../middleware/authMiddleware");
+const uploadImage = require("../middleware/uploadImage");
 const admin = require("../middleware/adminMiddleware");
 
 router.get("/profile", protect, getProfile);
-router.put("/profile", protect, updateProfile);
+router.put(
+  "/profile",
+ protect,
+  uploadImage.single("profilePic"),
+ updateProfile
+);
 router.get("/addresses", protect, getAddresses);
 router.post("/addresses", protect, addAddress);
 router.put("/addresses/:id", protect, updateAddress);

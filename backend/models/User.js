@@ -61,9 +61,14 @@ isVerified: {
     
 
     profilePic: {
-      type: String,
-      default: "",
-    },
+  type: String,
+  default: "",
+},
+
+profilePicId: {
+  type: String,
+  default: "",
+},
 
     gender: {
       type: String,

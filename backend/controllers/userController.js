@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const cloudinary = require("../config/cloudinary");
 
 exports.getProfile = async (req, res) => {
   try {
@@ -27,31 +28,70 @@ exports.getProfile = async (req, res) => {
 };
 exports.updateProfile = async (req, res) => {
   try {
-    const {
+    const { name, phone, gender, dob, removeProfilePic } = req.body;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const updateData = {
       name,
       phone,
       gender,
       dob,
-      profilePic,
-    } = req.body;
+    };
 
-    const user =
-      await User.findByIdAndUpdate(
-        req.user.id,
-        {
-          name,
-          phone,
-          gender,
-          dob,
-          profilePic,
-        },
-        {
-          new: true,
-        }
-      ).select("-password");
+    // Remove Profile Photo
+    if (removeProfilePic === "true") {
+      if (user.profilePicId) {
+        await cloudinary.uploader.destroy(user.profilePicId);
+      }
 
-    res.json(user);
+      updateData.profilePic = "";
+      updateData.profilePicId = "";
+    }
+
+    // Upload New Profile Photo
+    if (req.file) {
+      // Delete old image if exists
+      if (user.profilePicId) {
+        await cloudinary.uploader.destroy(user.profilePicId);
+      }
+
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "profile-images",
+          },
+          (err, result) => {
+            if (err) return reject(err);
+            resolve(result);
+          }
+        );
+
+        stream.end(req.file.buffer);
+      });
+
+      updateData.profilePic = result.secure_url;
+      updateData.profilePicId = result.public_id;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      updateData,
+      {
+        new: true,
+      }
+    ).select("-password");
+
+    res.json(updatedUser);
   } catch (err) {
+    console.log(err);
+
     res.status(500).json({
       message: err.message,
     });

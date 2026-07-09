@@ -14,7 +14,7 @@ export default function ProductGrid({
           xs: "1fr 1fr",
           sm: "1fr 1fr",
           md: "1fr 1fr 1fr",
-          lg: "1fr 1fr 1fr 1fr",
+          lg: "1fr 1fr 1fr 1fr 1fr",
         },
         gap: 3,
       }}

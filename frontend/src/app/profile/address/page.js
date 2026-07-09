@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
+import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import {
   Container,
   Typography,
@@ -30,11 +32,13 @@ import { API_URL } from "@/lib/api";
 
 export default function AddressPage() {
   const [addresses, setAddresses] = useState([]);
-
   const [open, setOpen] = useState(false);
-
   const [editingId, setEditingId] = useState(null);
-
+  const [loading, setLoading] = useState(false);
+const [deleteDialog, setDeleteDialog] = useState({
+  open: false,
+  id: null,
+});
   const [form, setForm] = useState({
     fullName: "",
     phone: "",
@@ -47,7 +51,6 @@ export default function AddressPage() {
     type: "Home",
     isDefault: false,
   });
-
   const resetForm = () => {
     setForm({
       fullName: "",
@@ -94,53 +97,88 @@ export default function AddressPage() {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    try {
-      const token = localStorage.getItem("token");
+  setLoading(true);
 
-      const url = editingId
-        ? `${API_URL}/users/addresses/${editingId}`
-        : `${API_URL}/users/addresses`;
+  try {
+    const token = localStorage.getItem("token");
 
-      const method = editingId ? "PUT" : "POST";
+    const url = editingId
+      ? `${API_URL}/users/addresses/${editingId}`
+      : `${API_URL}/users/addresses`;
 
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(form),
-      });
+    const method = editingId ? "PUT" : "POST";
 
-      if (res.ok) {
-        fetchAddresses();
-        resetForm();
-        setOpen(false);
-      }
-    } catch (err) {
-      console.log(err);
+    const res = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(form),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast.error(data.message || "Something went wrong");
+      return;
     }
-  };
 
-  const handleDelete = async (id) => {
-    try {
-      const token = localStorage.getItem("token");
+    fetchAddresses();
+    resetForm();
+    setOpen(false);
 
-      await fetch(`${API_URL}/users/addresses/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    toast.success(
+      editingId
+        ? "Address updated successfully."
+        : "Address added successfully."
+    );
+  } catch (err) {
+    console.log(err);
+    toast.error("Something went wrong.");
+  } finally {
+    setLoading(false);
+  }
+};
 
-      fetchAddresses();
-    } catch (err) {
-      console.log(err);
+const handleDelete = async (id) => {
+  try {
+    setLoading(true);
+
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(`${API_URL}/users/addresses/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast.error(data.message || "Failed to delete address.");
+      return;
     }
-  };
+
+    toast.success("Address deleted successfully.");
+
+    fetchAddresses();
+  } catch (err) {
+    console.log(err);
+    toast.error("Something went wrong.");
+  } finally {
+    setLoading(false);
+
+    setDeleteDialog({
+      open: false,
+      id: null,
+    });
+  }
+};
 
   return (
     <Container
@@ -259,7 +297,12 @@ export default function AddressPage() {
       setForm(address);
       setOpen(true);
     }}
-    onDelete={handleDelete}
+   onDelete={(id) =>
+  setDeleteDialog({
+    open: true,
+    id,
+  })
+}
   />
 </Box>
       )}
@@ -433,25 +476,46 @@ export default function AddressPage() {
 
             {/* BUTTON */}
             <Grid item xs={12}>
-              <Button
-                type="submit"
-                variant="contained"
-                fullWidth
-                color="success"
-                size="large"
-                sx={{
-                  py: 1.5,
-                  borderRadius: 2,
-                  fontWeight: 600,
-                  mt: 1,
-                }}
-              >
-                {editingId ? "Update Address" : "Save Address"}
-              </Button>
+             <Button
+  type="submit"
+  variant="contained"
+  fullWidth
+  color="success"
+  size="large"
+  disabled={loading}
+  sx={{
+    py: 1.5,
+    borderRadius: 2,
+    fontWeight: 600,
+    mt: 1,
+  }}
+>
+  {loading
+    ? "Please wait..."
+    : editingId
+    ? "Update Address"
+    : "Save Address"}
+</Button>
             </Grid>
           </Grid>
         </Box>
       </Dialog>
+      <ConfirmationDialog
+  open={deleteDialog.open}
+  title="Delete Address"
+  message="Are you sure you want to delete this address? This action cannot be undone."
+  confirmText="Delete"
+  cancelText="Cancel"
+  confirmColor="error"
+  loading={loading}
+  onCancel={() =>
+    setDeleteDialog({
+      open: false,
+      id: null,
+    })
+  }
+  onConfirm={() => handleDelete(deleteDialog.id)}
+/>
     </Container>
   );
 }

@@ -125,14 +125,11 @@ export default function OrderDetail() {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        const res = await fetch(
-          `${API_URL}/orders/admin/${id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
+        const res = await fetch(`${API_URL}/orders/admin/${id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        );
+        });
         const data = await res.json();
         setOrder(data);
       } catch (err) {
@@ -198,11 +195,11 @@ export default function OrderDetail() {
                 size="small"
                 onClick={() => router.back()}
                 sx={{
-                 // border: "1px solid",
+                  // border: "1px solid",
                   //borderColor: "grey.200",
                   //bgcolor: "#fff",
                   borderRadius: 2,
-                  px:2,
+                  px: 2,
                   color: "black",
                 }}
               >
@@ -457,10 +454,7 @@ export default function OrderDetail() {
               <Button
                 variant="outlined"
                 onClick={() =>
-                  window.open(
-                    `${API_URL}/invoice/view/${order._id}`,
-                    "_blank",
-                  )
+                  window.open(`${API_URL}/invoice/view/${order._id}`, "_blank")
                 }
               >
                 View Invoice
@@ -471,10 +465,9 @@ export default function OrderDetail() {
                 variant="contained"
                 color="primary"
                 onClick={async () => {
-                  await fetch(
-                    `${API_URL}/invoice/email/${order._id}`,
-                    { method: "POST" },
-                  );
+                  await fetch(`${API_URL}/invoice/email/${order._id}`, {
+                    method: "POST",
+                  });
                   alert("Invoice sent to email");
                 }}
               >
@@ -502,6 +495,33 @@ export default function OrderDetail() {
           </SectionCard>
         </Stack>
         {/* Return Section */}
+
+        {order.returnImages?.length > 0 && (
+          <Box mt={2}>
+            <Typography fontWeight={600}>Return Images</Typography>
+
+            <Stack direction="row" spacing={2} mt={1}>
+              {order.returnImages.map((img, index) => (
+                <img
+                  key={index}
+                  src={img}
+                  width="100"
+                  height="100"
+                  style={{
+                    objectFit: "cover",
+                    borderRadius: "8px",
+                  }}
+                />
+              ))}
+            </Stack>
+          </Box>
+        )}
+        {order.returnDescription && (
+          <Typography fontSize={13}>
+            <b>Description:</b> {order.returnDescription}
+          </Typography>
+        )}
+
         {order.returnStatus !== "None" && (
           <SectionCard
             title="Return Tracking"

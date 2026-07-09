@@ -22,7 +22,8 @@ export default function OrderSummary({
   couponData,
   discount,
   onApplyCoupon,
-  onRemoveCoupon,placingOrder,
+  onRemoveCoupon,
+  placingOrder,
   onPlaceOrder,
 }) {
   return (
@@ -69,7 +70,8 @@ export default function OrderSummary({
       <Stack direction="row" spacing={1}>
         <TextField
           fullWidth
-          size="small"           color="success"
+          size="small"
+          color="success"
           placeholder="Coupon Code"
           value={couponCode}
           onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
@@ -144,18 +146,18 @@ export default function OrderSummary({
           mt: 3,
           py: 1.5,
           borderRadius: 2,
-          bgcolor:'black'
+          bgcolor: "black",
         }}
         onClick={onPlaceOrder}
       >
-{placingOrder ? (
-  <>
-    <CircularProgress size={20} sx={{ mr: 1, color: "#fff" }} />
-    Placing Order...
-  </>
-) : (
-  "Place Order"
-)}
+        {placingOrder ? (
+          <>
+            <CircularProgress size={20} sx={{ mr: 1, color: "#fff" }} />
+            Placing Order...
+          </>
+        ) : (
+          "Place Order"
+        )}
       </Button>
     </Paper>
   );

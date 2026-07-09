@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import {
   removeFromCart,
   increaseQuantity,
@@ -28,12 +29,11 @@ import { useRouter } from "next/navigation";
 import ShoppingBagOutlinedIcon from "@mui/icons-material/ShoppingBagOutlined";
 import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import VerifiedUserOutlinedIcon from "@mui/icons-material/VerifiedUserOutlined";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
+import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  applyCoupon,
-  removeCoupon,
-} from "@/redux/slices/couponSlice";
+import { applyCoupon, removeCoupon } from "@/redux/slices/couponSlice";
 import CartItem from "@/components/cart/CartItem";
 import EmptyState from "@/components/common/EmptyState";
 import { API_URL } from "@/lib/api";
@@ -47,6 +47,10 @@ export default function CartPage() {
   const [stockDialog, setStockDialog] = useState({
     open: false,
     adjustedCart: [],
+  });
+  const [outOfStockDialog, setOutOfStockDialog] = useState({
+    open: false,
+    items: [],
   });
   const [couponCode, setCouponCode] = useState("");
   const [couponData, setCouponData] = useState(null);
@@ -73,8 +77,6 @@ export default function CartPage() {
 
   const amountLeft = FREE_SHIPPING_THRESHOLD - subtotal;
 
-
-
   // 🔥 FETCH CART
   const fetchCart = async () => {
     try {
@@ -93,7 +95,8 @@ export default function CartPage() {
 
       setCartItems(items);
     } catch (err) {
-      console.log("Cart fetch error:", err);
+      console.error(err);
+      toast.error("Failed to load cart.");
     } finally {
       setLoading(false);
     }
@@ -106,7 +109,9 @@ export default function CartPage() {
 
       localStorage.removeItem("appliedCoupon");
 
-      alert("Coupon removed because cart total changed.");
+      toast.info(
+        "Coupon removed because minimum order value is no longer met.",
+      );
     }
   }, [subtotal, couponData]);
 
@@ -128,12 +133,13 @@ export default function CartPage() {
         });
 
         if (!res.ok) {
-          alert("Coupon expired or invalid.");
+          toast.error("Coupon expired or invalid.");
 
           setCouponData(null);
 
           setDiscount(0);
           localStorage.removeItem("appliedCoupon");
+          localStorage.removeItem("checkoutCoupon");
 
           return;
         }
@@ -149,12 +155,11 @@ export default function CartPage() {
 
       // ❌ OUT OF STOCK
       if (data.outOfStockItems?.length > 0) {
-        alert(
-          "❌ Out of stock:\n\n" +
-            data.outOfStockItems
-              .map((i) => `${i.name} (0 available)`)
-              .join("\n"),
-        );
+        setOutOfStockDialog({
+          open: true,
+          items: data.outOfStockItems,
+        });
+
         return;
       }
 
@@ -213,7 +218,7 @@ export default function CartPage() {
       router.push("/checkout");
     } catch (err) {
       console.log(err);
-      alert("Error checking stock");
+      toast.error("Unable to verify stock. Please try again.");
     }
   };
 
@@ -236,7 +241,7 @@ export default function CartPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message);
+        toast.error(data.message || "Invalid coupon.");
         return;
       }
 
@@ -251,9 +256,10 @@ export default function CartPage() {
         }),
       );
 
-      alert("Coupon Applied Successfully");
+      toast.success("Coupon applied successfully.");
     } catch (err) {
-      console.log(err);
+      console.error(err);
+      toast.error("Unable to apply coupon. Please try again.");
     }
   };
 
@@ -299,7 +305,8 @@ export default function CartPage() {
       },
     });
 
-    fetchCart();
+  await fetchCart();
+toast.success("Item removed from cart.");
   };
 
   // ➕ INCREASE
@@ -338,40 +345,39 @@ export default function CartPage() {
     fetchCart();
   };
 
-    const removeCoupon = () => {
-  setCouponData(null);
-  setDiscount(0);
-  setCouponCode("");
+  const removeCoupon = () => {
+    setCouponData(null);
+    setDiscount(0);
+    setCouponCode("");
 
-  localStorage.removeItem("appliedCoupon");
-  localStorage.removeItem("checkoutCoupon");
+    localStorage.removeItem("appliedCoupon");
+    localStorage.removeItem("checkoutCoupon");
 
-  window.dispatchEvent(new Event("coupon-update"));
-};
-
-useEffect(() => {
-  const handleCouponUpdate = () => {
-    const saved = localStorage.getItem("appliedCoupon");
-
-    if (!saved) {
-      setCouponData(null);
-      setDiscount(0);
-      setCouponCode("");
-      return;
-    }
-
-    const data = JSON.parse(saved);
-
-    setCouponData(data.coupon);
-    setDiscount(data.discount);
+    window.dispatchEvent(new Event("coupon-update"));
   };
 
-  window.addEventListener("coupon-update", handleCouponUpdate);
+  useEffect(() => {
+    const handleCouponUpdate = () => {
+      const saved = localStorage.getItem("appliedCoupon");
 
-  return () =>
-    window.removeEventListener("coupon-update", handleCouponUpdate);
-}, []);
+      if (!saved) {
+        setCouponData(null);
+        setDiscount(0);
+        setCouponCode("");
+        return;
+      }
 
+      const data = JSON.parse(saved);
+
+      setCouponData(data.coupon);
+      setDiscount(data.discount);
+    };
+
+    window.addEventListener("coupon-update", handleCouponUpdate);
+
+    return () =>
+      window.removeEventListener("coupon-update", handleCouponUpdate);
+  }, []);
 
   if (loading) {
     return (
@@ -610,18 +616,18 @@ useEffect(() => {
                   Apply
                 </Button>
               </Box>{" "}
-      <AppliedCoupon
-  coupon={couponData}
-  discount={discount}
-  onRemove={() => {
-    setCouponData(null);
-    setDiscount(0);
-    setCouponCode("");
+              <AppliedCoupon
+                coupon={couponData}
+                discount={discount}
+                onRemove={() => {
+                  setCouponData(null);
+                  setDiscount(0);
+                  setCouponCode("");
 
-    localStorage.removeItem("appliedCoupon");
-    localStorage.removeItem("checkoutCoupon");
-  }}
-/>
+                  localStorage.removeItem("appliedCoupon");
+                  localStorage.removeItem("checkoutCoupon");
+                }}
+              />
               {/* Price breakdown */}
               <Stack spacing={1.5} mb={2}>
                 <Stack direction="row" justifyContent="space-between">
@@ -748,55 +754,119 @@ useEffect(() => {
       <Dialog
         open={stockDialog.open}
         onClose={() => setStockDialog({ open: false, adjustedCart: [] })}
+        maxWidth="sm"
+        fullWidth
       >
-        <DialogTitle>⚠️ Stock Updated</DialogTitle>
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            fontWeight: 700,
+            color: "#d97706",
+          }}
+        >
+          <WarningAmberRoundedIcon color="warning" />
+          Stock Availability Updated
+        </DialogTitle>
 
         <DialogContent>
-          <Stack spacing={1}>
-            {stockDialog.adjustedCart.map((item, idx) => (
-              <Typography key={idx} fontSize={14}>
-                {item.name}: Abhi hamare pass sirf <b>{item.available}</b>{" "}
-                available hai (aapne <b>{item.requested}</b> add kiya tha)
-              </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Some products in your cart are no longer available in the quantity
+            you selected. We've found the maximum available quantity for each
+            item.
+          </Typography>
+
+          <Stack spacing={2}>
+            {stockDialog.adjustedCart.map((item, index) => (
+              <Box
+                key={item.cartId || index}
+                sx={{
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 2,
+                  p: 2,
+                }}
+              >
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  mb={1}
+                >
+                  <Typography fontWeight={600}>{item.name}</Typography>
+
+                  <Inventory2RoundedIcon fontSize="small" color="action" />
+                </Stack>
+
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  <Chip
+                    label={`Requested: ${item.requested}`}
+                    color="error"
+                    size="small"
+                    variant="outlined"
+                  />
+
+                  <Chip
+                    label={`Available: ${item.available}`}
+                    color="success"
+                    size="small"
+                  />
+                </Stack>
+              </Box>
             ))}
           </Stack>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Typography variant="body2" color="text.secondary">
+            If you continue, your cart quantities will be automatically updated
+            to the available stock before proceeding to checkout.
+          </Typography>
         </DialogContent>
 
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
           <Button
-            onClick={() => setStockDialog({ open: false, adjustedCart: [] })}
+            color="inherit"
+            onClick={() =>
+              setStockDialog({
+                open: false,
+                adjustedCart: [],
+              })
+            }
           >
-            Cancel
+            Review Cart
           </Button>
 
           <Button
             variant="contained"
+            color="warning"
             onClick={async () => {
               const token = localStorage.getItem("token");
 
-              // 🔥 auto update cart
               await Promise.all(
                 stockDialog.adjustedCart.map((item) =>
-                  fetch(
-                    `${API_URL}/cart/update/${item.cartId}`,
-                    {
-                      method: "PUT",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                      },
-                      body: JSON.stringify({
-                        type: "set",
-                        quantity: item.available,
-                      }),
+                  fetch(`${API_URL}/cart/update/${item.cartId}`, {
+                    method: "PUT",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
                     },
-                  ),
+                    body: JSON.stringify({
+                      type: "set",
+                      quantity: item.available,
+                    }),
+                  }),
                 ),
               );
 
-              setStockDialog({ open: false, adjustedCart: [] });
+              setStockDialog({
+                open: false,
+                adjustedCart: [],
+              });
 
               await fetchCart();
+
               if (couponData) {
                 localStorage.setItem(
                   "checkoutCoupon",
@@ -806,10 +876,67 @@ useEffect(() => {
                   }),
                 );
               }
+
               router.push("/checkout");
             }}
           >
-            Update Cart Automatically
+            Update Cart & Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={outOfStockDialog.open}
+        onClose={() =>
+          setOutOfStockDialog({
+            open: false,
+            items: [],
+          })
+        }
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ color: "error.main", fontWeight: 700 }}>
+          Out of Stock
+        </DialogTitle>
+
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            The following products are currently unavailable:
+          </Typography>
+
+          <Stack spacing={1.5}>
+            {outOfStockDialog.items.map((item, index) => (
+              <Paper
+                key={index}
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderColor: "#ffcdd2",
+                  bgcolor: "#fff5f5",
+                }}
+              >
+                <Typography fontWeight={600}>{item.name}</Typography>
+
+                <Typography variant="body2" color="error">
+                  Available Stock: 0
+                </Typography>
+              </Paper>
+            ))}
+          </Stack>
+        </DialogContent>
+
+        <DialogActions>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() =>
+              setOutOfStockDialog({
+                open: false,
+                items: [],
+              })
+            }
+          >
+            OK
           </Button>
         </DialogActions>
       </Dialog>

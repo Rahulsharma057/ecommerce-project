@@ -21,11 +21,11 @@ export default function AppliedCoupon({
   return (
     <Box
       sx={{
-        mt:1,
-        mb: 2.5,
-        p: 2,
-        borderRadius: 3,
-        border: "1px solid #bbf7d0",
+        mt:2,
+        mb: 1.5,
+        p: 1,
+        borderRadius: 1,
+        border: "1px solid #268c5945",
         bgcolor: "#f0fdf4",
         display: "flex",
         alignItems: "center",
@@ -56,7 +56,7 @@ export default function AppliedCoupon({
             fontSize={14}
             color="#166534"
           >
-            Coupon Applied Successfully
+            Coupon Applied {/* Successfully */}
           </Typography>
 
           <Stack
@@ -103,6 +103,7 @@ export default function AppliedCoupon({
           },
         }}
       >
+        
         <CloseRoundedIcon fontSize="small" />
       </IconButton>
     </Box>

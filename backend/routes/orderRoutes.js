@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-
+const uploadImage = require("../middleware/uploadImage");
 const authMiddleware = require("../middleware/authMiddleware");
 const adminMiddleware = require("../middleware/adminMiddleware");
 
@@ -14,7 +14,8 @@ const {
   updateOrderStatus,
   requestReturn,
   updateReturnStatus,
-  updatePickupStatus,  updateRefundStatus
+  updatePickupStatus,
+  updateRefundStatus,
 } = require("../controllers/orderController");
 
 // ================= USER =================
@@ -23,7 +24,12 @@ router.post("/place", authMiddleware, placeOrder);
 router.get("/my", authMiddleware, getMyOrders);
 router.get("/:id", authMiddleware, getOrder);
 router.put("/cancel/:id", authMiddleware, cancelOrder);
-router.put("/return/:id", authMiddleware, requestReturn);
+router.put(
+  "/return/:id",
+  authMiddleware,
+  uploadImage.array("images", 5),
+  requestReturn,
+);
 
 // ================= ADMIN =================
 router.get("/admin/all", authMiddleware, adminMiddleware, getAllOrdersAdmin);
@@ -42,13 +48,13 @@ router.put(
   "/admin/return/pickup/:id",
   authMiddleware,
   adminMiddleware,
-  updatePickupStatus
+  updatePickupStatus,
 );
 
 router.put(
   "/admin/refund/:id",
   authMiddleware,
   adminMiddleware,
-  updateRefundStatus
+  updateRefundStatus,
 );
 module.exports = router;

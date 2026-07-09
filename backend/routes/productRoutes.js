@@ -5,9 +5,9 @@ const {
   getProducts,
   getSingleProduct,
   updateProduct,
-  deleteProduct,createProductReview,getRelatedProducts,getFeaturedProducts,getNewArrivals
+  deleteProduct,createProductReview,getRelatedProducts,getFeaturedProducts,getNewArrivals,updateProductReview,  deleteProductReview
 } = require("../controllers/productController");
-console.log({
+/* console.log({
   addProduct,
   getProducts,
   getSingleProduct,
@@ -16,7 +16,7 @@ console.log({
   createProductReview,
   getRelatedProducts,
   getFeaturedProducts,
-});
+}); */
 const authMiddleware = require("../middleware/authMiddleware");
 router.get("/featured", getFeaturedProducts);
 router.post(
@@ -30,6 +30,17 @@ router.post(
   "/:id/review",
   authMiddleware,
   createProductReview
+);
+router.put(
+  "/:id/review",
+  authMiddleware,
+  updateProductReview
+);
+
+router.delete(
+  "/:id/review",
+  authMiddleware,
+  deleteProductReview
 );
 router.get(
   "/new-arrivals",
