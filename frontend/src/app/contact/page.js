@@ -2,8 +2,6 @@
 
 import axios from "axios";
 
-
-
 import {
   Box,
   Container,
@@ -12,7 +10,6 @@ import {
   Card,
   CardContent,
   Stack,
- 
   Button,
 } from "@mui/material";
 
@@ -25,9 +22,6 @@ import { API_URL } from "@/lib/api";
 import InquiryForm from "@/components/common/InquiryForm";
 
 export default function ContactPage() {
-
-
-
   return (
     <Box sx={{ bgcolor: "#f8f9fb", py: { xs: 6, md: 10 } }}>
       <Container maxWidth="lg">
@@ -150,41 +144,27 @@ export default function ContactPage() {
 
           {/* FORM SECTION */}
 
-         <InquiryForm
+         <Grid item xs={12} md={7}>
+  <Card elevation={0} sx={{ borderRadius: 3 }}>
+    <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+      <InquiryForm
+        title="Send us a Message"
+        buttonText="Send Message"
+        fields={["name", "email", "phone", "message"]}
+        onSubmit={async (data) => {
+          try {
+            await axios.post(`${API_URL}/contact`, data);
 
-title="Send us a Message"
-
-buttonText="Send Message"
-
-
-initialValues={{
-name:"",
-email:"",
-phone:"",
-message:""
-}}
-
-
-onSubmit={async(data)=>{
-
-
-await axios.post(
-
-`${API_URL}/contact`,
-
-data
-
-);
-
-
-alert(
-"Message sent successfully"
-);
-
-
-}}
-
-/>
+            alert("Message sent successfully");
+          } catch (error) {
+            console.error(error);
+            alert("Failed to send message");
+          }
+        }}
+      />
+    </CardContent>
+  </Card>
+</Grid>
         </Grid>
       </Container>
     </Box>

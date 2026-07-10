@@ -14,6 +14,7 @@ import {
   Drawer,
   List,
   ListItemButton,
+  ListItemIcon,
   ListItemText,
   Divider,
   Stack,
@@ -21,24 +22,34 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Avatar,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import CloseIcon from "@mui/icons-material/Close";
 import ShoppingBagOutlinedIcon from "@mui/icons-material/ShoppingBagOutlined";
 import FavoriteBorderOutlinedIcon from "@mui/icons-material/FavoriteBorderOutlined";
 import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
+import ListAltOutlinedIcon from "@mui/icons-material/ListAltOutlined";
+import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
+import NewReleasesOutlinedIcon from "@mui/icons-material/NewReleasesOutlined";
+import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
+import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
+import LoginOutlinedIcon from "@mui/icons-material/LoginOutlined";
 import { useSelector } from "react-redux";
 import SearchBar from "./SearchBar";
 import Tooltip from "@mui/material/Tooltip";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
+
 const NAV_LINKS = [
-  { label: "Home", href: "/" },
-  { label: "Women", href: "/products?category=Women" },
-  { label: "Men", href: "/products?category=Men" },
-  { label: "New Arrivals", href: "/products?type=new-arrivals" },
-  { label: "Sale", href: "/products?type=sale" },
-  { label: "Products", href: "/products" },
+  { label: "Home", href: "/", icon: <HomeOutlinedIcon fontSize="small" /> },
+  { label: "Women", href: "/products?category=Women", icon: <Inventory2OutlinedIcon fontSize="small" /> },
+  { label: "Men", href: "/products?category=Men", icon: <Inventory2OutlinedIcon fontSize="small" /> },
+  { label: "New Arrivals", href: "/products?type=new-arrivals", icon: <NewReleasesOutlinedIcon fontSize="small" /> },
+  { label: "Sale", href: "/products?type=sale", icon: <LocalOfferOutlinedIcon fontSize="small" /> },
+  { label: "Products", href: "/products", icon: <Inventory2OutlinedIcon fontSize="small" /> },
 ];
 
 export default function Navbar() {
@@ -50,6 +61,7 @@ export default function Navbar() {
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState(null);
   const [logoutOpen, setLogoutOpen] = useState(false);
+
   const getInitial = (name) => {
     if (!name) return "U";
     return name.trim().charAt(0).toUpperCase();
@@ -58,6 +70,7 @@ export default function Navbar() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
   useEffect(() => {
     const syncUser = () => {
       const storedUser = localStorage.getItem("user");
@@ -116,12 +129,21 @@ export default function Navbar() {
 
       <IconButton
         component={Link}
+        href="/profile/orders"
+        size="small"
+        aria-label="My Orders"
+      >
+        <ListAltOutlinedIcon fontSize="small" />
+      </IconButton>
+
+    {/*   <IconButton
+        component={Link}
         href="/profile"
         size="small"
         aria-label="Profile"
       >
         <PersonOutlineOutlinedIcon fontSize="small" />
-      </IconButton>
+      </IconButton> */}
 
       <IconButton component={Link} href="/cart" size="small" aria-label="Cart">
         <Badge badgeContent={cartItems.length} color="error">
@@ -135,7 +157,7 @@ export default function Navbar() {
           href="/profile"
           size="small"
           aria-label="Profile"
-          sx={{ display: { xs: "inline-flex", md: "none" } }}
+          sx={{ display: { xs: "inline-flex", md: "none" }, ml: 0.5 }}
         >
           <Box
             sx={{
@@ -149,16 +171,12 @@ export default function Navbar() {
               justifyContent: "center",
               fontSize: 12,
               fontWeight: 700,
+              transition: "all .2s ease",
               "&:hover": {
-                backgroundColor: "black", // ya "transparent"
+                backgroundColor: "black",
                 boxShadow: "none",
                 color: "#ffffff",
                 border: "1px solid black",
-                // transform: "translateY(-2px)",
-
-                "&::after": {
-                  width: "70%",
-                },
               },
             }}
           >
@@ -178,7 +196,7 @@ export default function Navbar() {
           bgcolor: "#fff",
           color: "#111",
           borderBottom: "1px solid #E5E7EB",
-          overflowX: "hidden", // 🔥 IMPORTANT
+          overflowX: "hidden",
           zIndex: (theme) => theme.zIndex.drawer + 2,
         }}
       >
@@ -301,6 +319,7 @@ export default function Navbar() {
             <Stack
               direction="row"
               alignItems="center"
+              spacing={0.25}
               sx={{
                 flexShrink: 0,
                 maxWidth: "100%",
@@ -316,6 +335,7 @@ export default function Navbar() {
                     alignItems: "center",
                     flexShrink: 0,
                     flexWrap: "nowrap",
+                    ml: 0.5,
                   }}
                 >
                   {user.role === "admin" && (
@@ -341,7 +361,7 @@ export default function Navbar() {
                       variant="outlined"
                       sx={{
                         display: { xs: "none", md: "inline-flex" },
-                        borderRadius: "50%", // 🔥 circle
+                        borderRadius: "50%",
                         minWidth: 36,
                         width: 36,
                         border: "none",
@@ -351,20 +371,14 @@ export default function Navbar() {
                         fontWeight: 700,
                         bgcolor: "#858282",
                         "&:hover": {
-                          backgroundColor: "black", // ya "transparent"
+                          backgroundColor: "black",
                           boxShadow: "none",
                           color: "#ffffff",
                           border: "1px solid black",
-                          // transform: "translateY(-2px)",
-
-                          "&::after": {
-                            width: "70%",
-                          },
                         },
                       }}
                     >
                       {getInitial(user.name)}
-                      {/*    {user.name} */}
                     </Button>
                   </Tooltip>
                   <Button
@@ -419,12 +433,17 @@ export default function Navbar() {
         anchor="left"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        sx={{
+          zIndex: (theme) => theme.zIndex.drawer + 3, // 🔥 keep above the AppBar
+        }}
         PaperProps={{
           sx: {
-            width: 280,
-            pt: 2,
+            width: 290,
             borderRight: "0.5px solid",
             borderColor: "divider",
+            display: "flex",
+            flexDirection: "column",
+            zIndex: (theme) => theme.zIndex.drawer + 3,
           },
         }}
       >
@@ -435,11 +454,7 @@ export default function Navbar() {
             alignItems: "center",
             justifyContent: "space-between",
             px: 2.5,
-            pb: 2,
-            mt: {
-              xs: 4,
-              md: 0,
-            },
+            py: 2,
           }}
         >
           <Typography
@@ -471,82 +486,212 @@ export default function Navbar() {
 
         <Divider sx={{ borderColor: "divider", opacity: 0.6 }} />
 
-        {/* Nav links */}
-        <List sx={{ px: 1.5, pt: 1.5 }}>
-          {NAV_LINKS.map((link) => (
-            <ListItemButton
-              key={link.href}
-              component={Link}
-              href={link.href}
-              onClick={() => setDrawerOpen(false)}
+        {/* User info card (only when logged in) */}
+        {user && (
+          <>
+            <Box
               sx={{
-                borderRadius: 2,
-                mb: 0.25,
-                py: 1,
-                px: 1.5,
-                "&:hover": { bgcolor: "grey.100" },
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                px: 2.5,
+                py: 2,
               }}
             >
-              <ListItemText
-                primary={link.label}
-                primaryTypographyProps={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: link.label === "Sale" ? "#D85A30" : "text.primary",
+              <Avatar
+                sx={{
+                  bgcolor: "#858282",
+                  width: 42,
+                  height: 42,
+                  fontWeight: 700,
+                  fontSize: 16,
                 }}
-              />
-            </ListItemButton>
-          ))}
-        </List>
-
-        <Divider sx={{ mx: 2, borderColor: "divider", opacity: 0.6, mt: 1 }} />
-
-        {/* Login in drawer */}
-        <Box sx={{ px: 2.5, pt: 2 }}>
-          {user ? (
-            <>
-              {user.role === "admin" && (
-                <Button
-                  fullWidth
-                  component={Link}
-                  href="/admin/products"
-                  onClick={() => setDrawerOpen(false)}
+              >
+                {getInitial(user.name)}
+              </Avatar>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  fontWeight={700}
+                  fontSize={14}
+                  noWrap
+                  sx={{ maxWidth: 170 }}
                 >
-                  Admin Panel
-                </Button>
-              )}
+                  {user.name}
+                </Typography>
+                {user.email && (
+                  <Typography
+                    fontSize={12}
+                    color="text.secondary"
+                    noWrap
+                    sx={{ maxWidth: 170 }}
+                  >
+                    {user.email}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+            <Divider sx={{ borderColor: "divider", opacity: 0.6 }} />
+          </>
+        )}
 
-              <Button
-                fullWidth
+        {/* Scrollable content */}
+        <Box sx={{ flex: 1, overflowY: "auto" }}>
+          {/* Nav links */}
+          <List sx={{ px: 1.5, pt: 1.5 }}>
+            {NAV_LINKS.map((link) => (
+              <ListItemButton
+                key={link.href}
+                component={Link}
+                href={link.href}
+                onClick={() => setDrawerOpen(false)}
+                sx={{
+                  borderRadius: 2,
+                  mb: 0.25,
+                  py: 1,
+                  px: 1.5,
+                  "&:hover": { bgcolor: "grey.100" },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    minWidth: 34,
+                    color: link.label === "Sale" ? "#D85A30" : "text.secondary",
+                  }}
+                >
+                  {link.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={link.label}
+                  primaryTypographyProps={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: link.label === "Sale" ? "#D85A30" : "text.primary",
+                  }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+
+          <Divider sx={{ mx: 2, borderColor: "divider", opacity: 0.6, my: 1 }} />
+
+          {/* Account section */}
+          <List sx={{ px: 1.5 }}>
+            {user && (
+              <ListItemButton
                 component={Link}
                 href="/profile"
                 onClick={() => setDrawerOpen(false)}
+                sx={{ borderRadius: 2, mb: 0.25, py: 1, px: 1.5 }}
               >
-                Profile
-              </Button>
+                <ListItemIcon sx={{ minWidth: 34, color: "text.secondary" }}>
+                  <PersonOutlineOutlinedIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Profile"
+                  primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
+                />
+              </ListItemButton>
+            )}
+            <ListItemButton
+              component={Link}
+              href="/profile/orders"
+              onClick={() => setDrawerOpen(false)}
+              sx={{ borderRadius: 2, mb: 0.25, py: 1, px: 1.5 }}
+            >
+              <ListItemIcon sx={{ minWidth: 34, color: "text.secondary" }}>
+                <ListAltOutlinedIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary="My Orders"
+                primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
+              />
+            </ListItemButton>
 
-              <Button
-                fullWidth
-                color="error"
-                onClick={() => setLogoutOpen(true)}
-                sx={{ mt: 1 }}
+            <ListItemButton
+              component={Link}
+              href="/wishlist"
+              onClick={() => setDrawerOpen(false)}
+              sx={{ borderRadius: 2, mb: 0.25, py: 1, px: 1.5 }}
+            >
+              <ListItemIcon sx={{ minWidth: 34, color: "text.secondary" }}>
+                <Badge badgeContent={wishlistItems.length} color="error">
+                  <FavoriteBorderOutlinedIcon fontSize="small" />
+                </Badge>
+              </ListItemIcon>
+              <ListItemText
+                primary="Wishlist"
+                primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
+              />
+            </ListItemButton>
+
+            <ListItemButton
+              component={Link}
+              href="/cart"
+              onClick={() => setDrawerOpen(false)}
+              sx={{ borderRadius: 2, mb: 0.25, py: 1, px: 1.5 }}
+            >
+              <ListItemIcon sx={{ minWidth: 34, color: "text.secondary" }}>
+                <Badge badgeContent={cartItems.length} color="error">
+                  <ShoppingBagOutlinedIcon fontSize="small" />
+                </Badge>
+              </ListItemIcon>
+              <ListItemText
+                primary="Cart"
+                primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
+              />
+            </ListItemButton>
+
+            
+
+            {user?.role === "admin" && (
+              <ListItemButton
+                component={Link}
+                href="/admin/products"
+                onClick={() => setDrawerOpen(false)}
+                sx={{ borderRadius: 2, mb: 0.25, py: 1, px: 1.5 }}
               >
-                Logout
-              </Button>
-            </>
+                <ListItemIcon sx={{ minWidth: 34, color: "text.secondary" }}>
+                  <AdminPanelSettingsOutlinedIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Admin Panel"
+                  primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
+                />
+              </ListItemButton>
+            )}
+          </List>
+        </Box>
+
+        {/* Footer: Login / Logout — pinned to bottom */}
+        <Box sx={{ px: 2, py: 2 }}>
+          <Divider sx={{ mb: 2, borderColor: "divider", opacity: 0.6 }} />
+          {user ? (
+            <Button
+              fullWidth
+              color="error"
+              variant="outlined"
+              startIcon={<LogoutOutlinedIcon fontSize="small" />}
+              onClick={() => setLogoutOpen(true)}
+              sx={{ borderRadius: 2, py: 1 }}
+            >
+              Logout
+            </Button>
           ) : (
             <Button
               fullWidth
               component={Link}
               href="/login"
-              variant="outlined"
+              variant="contained"
+              startIcon={<LoginOutlinedIcon fontSize="small" />}
               onClick={() => setDrawerOpen(false)}
+              sx={{ borderRadius: 2, py: 1, bgcolor: "#111" }}
             >
               Login
             </Button>
           )}
         </Box>
       </Drawer>
+
       <Dialog open={logoutOpen} onClose={() => setLogoutOpen(false)}>
         <DialogTitle>Logout</DialogTitle>
 

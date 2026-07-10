@@ -12,7 +12,6 @@ import {
   Avatar,
   Box,
   InputAdornment,
-  IconButton,
 } from "@mui/material";
 import { toast } from "react-toastify";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -137,50 +136,106 @@ const handleSubmit = async (e) => {
   return (
     <Container maxWidth="md" sx={{ py: 5 }}>
       {/* Header */}
-      <Stack direction="row" alignItems="center" mb={4}>
+      <Stack direction="row" alignItems="center" gap={1.5} mb={4}>
         <Button
           type="button"
-          sx={{ color: "black", fontSize: "20px", mb: 3 }}
           onClick={() => router.back()}
+          sx={{
+            minWidth: 40,
+            width: 40,
+            height: 40,
+            borderRadius: 2,
+            color: "#18181b",
+            border: "1px solid #e4e4e7",
+          }}
         >
-          <ArrowBackIcon />
+          <ArrowBackIcon fontSize="small" />
         </Button>
         <Box>
-          <Typography variant="h4" fontWeight={700}>
+          <Typography sx={{ fontSize: 22, fontWeight: 700, color: "#18181b", lineHeight: 1.2 }}>
             Edit Profile
           </Typography>
-
-          <Typography color="text.secondary">
+          <Typography sx={{ fontSize: 13.5, color: "#71717a", mt: 0.3 }}>
             Update your personal information
           </Typography>
         </Box>
       </Stack>
 
       <Paper
-        elevation={0}
+        variant="outlined"
         sx={{
           p: 4,
-          borderRadius: 4,
-          border: "1px solid #e5e7eb",
+          borderRadius: 3,
+          borderColor: "#e4e4e7",
         }}
       >
         <form onSubmit={handleSubmit}>
           <Stack spacing={4}>
             {/* Avatar */}
-            <Stack alignItems="center" spacing={2}>
+            <Stack alignItems="center" spacing={1.5}>
               <Avatar
                 src={form.profilePic}
                 sx={{
-                  width: 90,
-                  height: 90,
+                  width: 88,
+                  height: 88,
+                  bgcolor: "#18181b",
+                  fontSize: 30,
+                  fontWeight: 600,
                 }}
-              />
+              >
+                {form.name?.charAt(0)}
+              </Avatar>
+
+              <Button
+                type="button"
+                variant="outlined"
+                component="label"
+                size="small"
+                startIcon={<ImageOutlinedIcon sx={{ fontSize: 17 }} />}
+                sx={{
+                  borderRadius: 2,
+                  borderColor: "#e4e4e7",
+                  color: "#27272a",
+                  textTransform: "none",
+                  fontWeight: 500,
+                  "&:hover": { borderColor: "#18181b", bgcolor: "#f4f4f5" },
+                }}
+              >
+                Upload Photo
+                <input
+                  hidden
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+
+                    if (!file) return;
+
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast.error("Image must be less than 5 MB");
+                      return;
+                    }
+
+                    setSelectedFile(file);
+
+                    setForm((prev) => ({
+                      ...prev,
+                      profilePic: URL.createObjectURL(file),
+                    }));
+                  }}
+                />
+              </Button>
+
+              {selectedFile && (
+                <Typography variant="caption" sx={{ color: "#71717a" }}>
+                  {selectedFile.name}
+                </Typography>
+              )}
 
               {form.profilePic && (
                 <Button
                   type="button"
-                  color="error"
-                  variant="text"
+                  size="small"
                   onClick={() => {
                     setSelectedFile(null);
 
@@ -192,6 +247,12 @@ const handleSubmit = async (e) => {
                       ...prev,
                       profilePic: "",
                     }));
+                  }}
+                  sx={{
+                    color: "#dc2626",
+                    textTransform: "none",
+                    fontWeight: 500,
+                    "&:hover": { bgcolor: "#fef2f2" },
                   }}
                 >
                   Remove Photo
@@ -211,9 +272,17 @@ const handleSubmit = async (e) => {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <PersonOutlineIcon />
+                        <PersonOutlineIcon sx={{ color: "#a1a1aa", fontSize: 20 }} />
                       </InputAdornment>
                     ),
+                  }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                      "& fieldset": { borderColor: "#e4e4e7" },
+                      "&:hover fieldset": { borderColor: "#a1a1aa" },
+                      "&.Mui-focused fieldset": { borderColor: "#18181b" },
+                    },
                   }}
                 />
               </Grid>
@@ -228,9 +297,17 @@ const handleSubmit = async (e) => {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <PhoneOutlinedIcon />
+                        <PhoneOutlinedIcon sx={{ color: "#a1a1aa", fontSize: 20 }} />
                       </InputAdornment>
                     ),
+                  }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                      "& fieldset": { borderColor: "#e4e4e7" },
+                      "&:hover fieldset": { borderColor: "#a1a1aa" },
+                      "&.Mui-focused fieldset": { borderColor: "#18181b" },
+                    },
                   }}
                 />
               </Grid>
@@ -246,9 +323,17 @@ const handleSubmit = async (e) => {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <WcOutlinedIcon />
+                        <WcOutlinedIcon sx={{ color: "#a1a1aa", fontSize: 20 }} />
                       </InputAdornment>
                     ),
+                  }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                      "& fieldset": { borderColor: "#e4e4e7" },
+                      "&:hover fieldset": { borderColor: "#a1a1aa" },
+                      "&.Mui-focused fieldset": { borderColor: "#18181b" },
+                    },
                   }}
                 >
                   <MenuItem value="Male">Male</MenuItem>
@@ -271,49 +356,19 @@ const handleSubmit = async (e) => {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <CalendarMonthOutlinedIcon />
+                        <CalendarMonthOutlinedIcon sx={{ color: "#a1a1aa", fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                      "& fieldset": { borderColor: "#e4e4e7" },
+                      "&:hover fieldset": { borderColor: "#a1a1aa" },
+                      "&.Mui-focused fieldset": { borderColor: "#18181b" },
+                    },
+                  }}
                 />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Button
-                  type="button"
-                  variant="outlined"
-                  component="label"
-                  startIcon={<ImageOutlinedIcon />}
-                >
-                  Upload Profile Image
-                  <input
-                    hidden
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-
-                      if (!file) return;
-
-                      if (file.size > 5 * 1024 * 1024) {
-                        toast.error("Image must be less than 5 MB");
-                        return;
-                      }
-
-                      setSelectedFile(file);
-
-                      setForm((prev) => ({
-                        ...prev,
-                        profilePic: URL.createObjectURL(file),
-                      }));
-                    }}
-                  />
-                </Button>
-                {selectedFile && (
-                  <Typography variant="body2" color="text.secondary">
-                    {selectedFile.name}
-                  </Typography>
-                )}
               </Grid>
             </Grid>
 
@@ -323,6 +378,15 @@ const handleSubmit = async (e) => {
                 type="button"
                 variant="outlined"
                 onClick={() => router.back()}
+                sx={{
+                  borderRadius: 2,
+                  borderColor: "#e4e4e7",
+                  color: "#27272a",
+                  textTransform: "none",
+                  fontWeight: 500,
+                  px: 3,
+                  "&:hover": { borderColor: "#18181b", bgcolor: "#f4f4f5" },
+                }}
               >
                 Cancel
               </Button>
@@ -330,8 +394,16 @@ const handleSubmit = async (e) => {
               <Button
                 type="submit"
                 variant="contained"
-                size="large"
                 disabled={loading}
+                sx={{
+                  borderRadius: 2,
+                  bgcolor: "#18181b",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  px: 3,
+                  boxShadow: "none",
+                  "&:hover": { bgcolor: "#27272a", boxShadow: "none" },
+                }}
               >
                 {loading ? "Saving..." : "Save Changes"}
               </Button>

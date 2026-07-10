@@ -13,13 +13,10 @@ import {
   Grid,
   Card,
   CardContent,
-  Chip,
   Dialog,
   DialogTitle,
-  DialogContent,
   TextField,
   MenuItem,
-  IconButton,
   Box,
   Checkbox,
   FormControlLabel,
@@ -27,8 +24,18 @@ import {
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
+import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import AddressList from "@/components/address/AddressList";
 import { API_URL } from "@/lib/api";
+
+const inputSx = {
+  "& .MuiOutlinedInput-root": {
+    borderRadius: 2,
+    "& fieldset": { borderColor: "#e4e4e7" },
+    "&:hover fieldset": { borderColor: "#a1a1aa" },
+    "&.Mui-focused fieldset": { borderColor: "#18181b" },
+  },
+};
 
 export default function AddressPage() {
   const [addresses, setAddresses] = useState([]);
@@ -203,40 +210,38 @@ const handleDelete = async (id) => {
         spacing={2}
         mb={4}
       >
-        {" "}
-        <Box sx={{display:"flex",flexDirection:"row"}}>
+        <Box sx={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 1.5 }}>
+          <Button
+            onClick={() => {
+              if (window.history.length > 1) {
+                router.back();
+              } else {
+                router.push("/profile");
+              }
+            }}
+            sx={{
+              minWidth: 40,
+              width: 40,
+              height: 40,
+              borderRadius: 2,
+              color: "#18181b",
+              border: "1px solid #e4e4e7",
+              flexShrink: 0,
+            }}
+          >
+            <ArrowBackIcon fontSize="small" />
+          </Button>
+
           <Box>
-            {" "}
-            <Button
-              onClick={() => {
-                if (window.history.length > 1) {
-                  router.back();
-                } else {
-                  router.push("/profile");
-                }
-              }}
-             
-              sx={{
-                color: "rgb(2, 2, 2)",
-                width: {
-                  xs: "100%",
-                  sm: "fit-content",
-                },
-              }}
-            >
-              <ArrowBackIcon />
-            </Button>
-         
-          </Box >
-          <Box>
-               <Typography fontSize={22} fontWeight={800}>
+            <Typography sx={{ fontSize: 22, fontWeight: 700, color: "#18181b", lineHeight: 1.2 }}>
               My Addresses
             </Typography>
-          <Typography fontSize={13} color="text.secondary">
-            Manage your delivery locations
-          </Typography>
+            <Typography sx={{ fontSize: 13.5, color: "#71717a", mt: 0.3 }}>
+              Manage your delivery locations
+            </Typography>
           </Box>
         </Box>
+
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -244,8 +249,13 @@ const handleDelete = async (id) => {
             resetForm();
             setOpen(true);
           }}
-          color="success"
           sx={{
+            bgcolor: "#18181b",
+            borderRadius: 2,
+            textTransform: "none",
+            fontWeight: 600,
+            boxShadow: "none",
+            "&:hover": { bgcolor: "#27272a", boxShadow: "none" },
             width: {
               xs: "100%",
               sm: "fit-content",
@@ -258,27 +268,53 @@ const handleDelete = async (id) => {
 
       {addresses.length === 0 ? (
         <Card
+          variant="outlined"
           sx={{
-            borderRadius: 4,
+            borderRadius: 3,
             p: 4,
             textAlign: "center",
-            bgcolor: "#f9fafb",
-            border: "1px dashed #d1d5db",
+            bgcolor: "#fafafa",
+            borderColor: "#e4e4e7",
+            boxShadow: "none",
           }}
         >
           <CardContent>
-            <Typography fontSize={18} fontWeight={700}>
+            <Box
+              sx={{
+                width: 56,
+                height: 56,
+                borderRadius: "50%",
+                bgcolor: "#f4f4f5",
+                color: "#71717a",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                mx: "auto",
+                mb: 2,
+              }}
+            >
+              <LocationOnOutlinedIcon sx={{ fontSize: 26 }} />
+            </Box>
+
+            <Typography fontSize={17} fontWeight={700} sx={{ color: "#18181b" }}>
               No addresses added yet
             </Typography>
 
-            <Typography color="text.secondary" mt={1}>
+            <Typography sx={{ color: "#71717a", fontSize: 14, mt: 0.5 }}>
               Save your delivery address to make checkout faster.
             </Typography>
 
             <Button
               variant="contained"
-              color="success"
-              sx={{ mt: 3, borderRadius: 2 }}
+              sx={{
+                mt: 3,
+                borderRadius: 2,
+                bgcolor: "#18181b",
+                textTransform: "none",
+                fontWeight: 600,
+                boxShadow: "none",
+                "&:hover": { bgcolor: "#27272a", boxShadow: "none" },
+              }}
               onClick={() => {
                 resetForm();
                 setOpen(true);
@@ -289,22 +325,22 @@ const handleDelete = async (id) => {
           </CardContent>
         </Card>
       ) : (
-  <Box m={2} px={4}>
-  <AddressList
-    addresses={addresses}
-    onEdit={(address) => {
-      setEditingId(address._id);
-      setForm(address);
-      setOpen(true);
-    }}
-   onDelete={(id) =>
-  setDeleteDialog({
-    open: true,
-    id,
-  })
-}
-  />
-</Box>
+        <Box>
+          <AddressList
+            addresses={addresses}
+            onEdit={(address) => {
+              setEditingId(address._id);
+              setForm(address);
+              setOpen(true);
+            }}
+            onDelete={(id) =>
+              setDeleteDialog({
+                open: true,
+                id,
+              })
+            }
+          />
+        </Box>
       )}
 
       <Dialog
@@ -326,10 +362,10 @@ const handleDelete = async (id) => {
         <DialogTitle
           sx={{
             fontWeight: 700,
-            fontSize: 18,
-            color: "rgba(24, 24, 24, 0.97)",
-            bgcolor: "#f9f9f9",
-            borderBottom: "1px solid #eee",
+            fontSize: 17,
+            color: "#18181b",
+            bgcolor: "#fafafa",
+            borderBottom: "1px solid #f4f4f5",
           }}
         >
           {editingId ? "Update Address" : "Add New Address"}
@@ -355,6 +391,7 @@ const handleDelete = async (id) => {
                 name="fullName"
                 value={form.fullName}
                 onChange={handleChange}
+                sx={inputSx}
               />
             </Grid>
 
@@ -366,6 +403,7 @@ const handleDelete = async (id) => {
                 name="phone"
                 value={form.phone}
                 onChange={handleChange}
+                sx={inputSx}
               />
             </Grid>
 
@@ -377,6 +415,7 @@ const handleDelete = async (id) => {
                 name="house"
                 value={form.house}
                 onChange={handleChange}
+                sx={inputSx}
               />
             </Grid>
 
@@ -388,6 +427,7 @@ const handleDelete = async (id) => {
                 name="area"
                 value={form.area}
                 onChange={handleChange}
+                sx={inputSx}
               />
             </Grid>
 
@@ -399,6 +439,7 @@ const handleDelete = async (id) => {
                 name="city"
                 value={form.city}
                 onChange={handleChange}
+                sx={inputSx}
               />
             </Grid>
 
@@ -410,6 +451,7 @@ const handleDelete = async (id) => {
                 name="state"
                 value={form.state}
                 onChange={handleChange}
+                sx={inputSx}
               />
             </Grid>
 
@@ -421,6 +463,7 @@ const handleDelete = async (id) => {
                 name="pincode"
                 value={form.pincode}
                 onChange={handleChange}
+                sx={inputSx}
               />
             </Grid>
 
@@ -432,6 +475,7 @@ const handleDelete = async (id) => {
                 name="landmark"
                 value={form.landmark}
                 onChange={handleChange}
+                sx={inputSx}
               />
             </Grid>
 
@@ -444,6 +488,7 @@ const handleDelete = async (id) => {
                 name="type"
                 value={form.type}
                 onChange={handleChange}
+                sx={inputSx}
               >
                 <MenuItem value="Home">Home</MenuItem>
                 <MenuItem value="Office">Office</MenuItem>
@@ -468,54 +513,62 @@ const handleDelete = async (id) => {
                         isDefault: e.target.checked,
                       })
                     }
+                    sx={{
+                      color: "#d4d4d8",
+                      "&.Mui-checked": { color: "#18181b" },
+                    }}
                   />
                 }
                 label="Set as default address"
+                sx={{ "& .MuiFormControlLabel-label": { fontSize: 14, color: "#27272a" } }}
               />
             </Grid>
 
             {/* BUTTON */}
             <Grid item xs={12}>
-             <Button
-  type="submit"
-  variant="contained"
-  fullWidth
-  color="success"
-  size="large"
-  disabled={loading}
-  sx={{
-    py: 1.5,
-    borderRadius: 2,
-    fontWeight: 600,
-    mt: 1,
-  }}
->
-  {loading
-    ? "Please wait..."
-    : editingId
-    ? "Update Address"
-    : "Save Address"}
-</Button>
+              <Button
+                type="submit"
+                variant="contained"
+                fullWidth
+                size="large"
+                disabled={loading}
+                sx={{
+                  py: 1.5,
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  mt: 1,
+                  bgcolor: "#18181b",
+                  textTransform: "none",
+                  boxShadow: "none",
+                  "&:hover": { bgcolor: "#27272a", boxShadow: "none" },
+                }}
+              >
+                {loading
+                  ? "Please wait..."
+                  : editingId
+                  ? "Update Address"
+                  : "Save Address"}
+              </Button>
             </Grid>
           </Grid>
         </Box>
       </Dialog>
       <ConfirmationDialog
-  open={deleteDialog.open}
-  title="Delete Address"
-  message="Are you sure you want to delete this address? This action cannot be undone."
-  confirmText="Delete"
-  cancelText="Cancel"
-  confirmColor="error"
-  loading={loading}
-  onCancel={() =>
-    setDeleteDialog({
-      open: false,
-      id: null,
-    })
-  }
-  onConfirm={() => handleDelete(deleteDialog.id)}
-/>
+        open={deleteDialog.open}
+        title="Delete Address"
+        message="Are you sure you want to delete this address? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmColor="error"
+        loading={loading}
+        onCancel={() =>
+          setDeleteDialog({
+            open: false,
+            id: null,
+          })
+        }
+        onConfirm={() => handleDelete(deleteDialog.id)}
+      />
     </Container>
   );
 }
