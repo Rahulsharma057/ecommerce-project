@@ -1,18 +1,18 @@
 "use client";
 
-import { Box, Container, Typography, Button, Stack, Chip } from "@mui/material";
+import { Box, Container, Typography, Button, Stack, Chip ,Paper,Divider} from "@mui/material";
 import ArrowOutwardIcon from "@mui/icons-material/ArrowOutward";
 import CheckIcon from "@mui/icons-material/Check";
 import StarIcon from "@mui/icons-material/Star";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import Link from "next/link";
-    import Image from "next/image";
+import Image from "next/image";
 export default function HeroSection() {
   return (
     <Box
       sx={{
         bgcolor: "#fdfcfb",
-        py: { xs: 8, md: 10 },
+        py: { xs: 3, sm: 5, md: 10 },
       }}
     >
       <Container maxWidth="lg">
@@ -20,7 +20,7 @@ export default function HeroSection() {
           sx={{
             display: "grid",
             gridTemplateColumns: { xs: "1fr", md: "1.1fr 0.9fr" },
-            gap: { xs: 6, md: 5 },
+            gap: { xs: 3.5, md: 5 },
             alignItems: "center",
           }}
         >
@@ -45,12 +45,20 @@ export default function HeroSection() {
             <Typography
               variant="h2"
               sx={{
-                fontFamily: "Georgia, 'Times New Roman', serif",
-                fontWeight: 600,
-                lineHeight: 1.12,
-                letterSpacing: "-0.02em",
-                color: "#141414",
-                fontSize: { xs: "2.2rem", sm: "2.8rem", md: "3.6rem" },
+                fontFamily: "Georgia, serif",
+                fontWeight: 700,
+                color: "#111",
+                lineHeight: 1.15,
+                letterSpacing: "-0.03em",
+                fontSize: {
+                  xs: "2rem",
+                  sm: "2.7rem",
+                  md: "3.7rem",
+                },
+                textAlign: {
+                  xs: "center",
+                  md: "left",
+                },
                 mb: 2,
               }}
             >
@@ -61,10 +69,21 @@ export default function HeroSection() {
 
             <Typography
               sx={{
-                fontSize: "1rem",
-                color: "text.secondary",
-                lineHeight: 1.75,
-                maxWidth: 400,
+                fontSize: {
+                  xs: 15,
+                  md: 16,
+                },
+                lineHeight: 1.8,
+                color: "#64748b",
+                maxWidth: 430,
+                mx: {
+                  xs: "auto",
+                  md: 0,
+                },
+                textAlign: {
+                  xs: "center",
+                  md: "left",
+                },
                 mb: 4,
               }}
             >
@@ -72,7 +91,15 @@ export default function HeroSection() {
               everyday luxury.
             </Typography>
 
-            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+            <Stack
+              direction={{
+                xs: "column",
+                sm: "row",
+              }}
+              spacing={2}
+              flexWrap="wrap"
+              useFlexGap
+            >
               <Link href="/products" style={{ textDecoration: "none" }}>
                 <Button
                   variant="contained"
@@ -87,6 +114,10 @@ export default function HeroSection() {
                     fontSize: "0.9rem",
                     fontWeight: 500,
                     textTransform: "none",
+                    width: {
+                      xs: "100%",
+                      sm: "auto",
+                    },
                     boxShadow: "none",
                     "&:hover": { bgcolor: "#2a2a2a", boxShadow: "none" },
                   }}
@@ -97,7 +128,7 @@ export default function HeroSection() {
 
               <Button
                 component="a"
-  href="#lookbook"
+                href="#lookbook"
                 variant="outlined"
                 size="large"
                 sx={{
@@ -108,6 +139,10 @@ export default function HeroSection() {
                   borderRadius: "8px",
                   fontSize: "0.9rem",
                   fontWeight: 500,
+                  width: {
+                    xs: "100%",
+                    sm: "auto",
+                  },
                   textTransform: "none",
                   "&:hover": {
                     borderColor: "rgba(0,0,0,0.4)",
@@ -119,7 +154,7 @@ export default function HeroSection() {
               </Button>
             </Stack>
 
-        {/*     <Stack
+            {/*     <Stack
               direction="row"
               spacing={4}
               sx={{
@@ -156,114 +191,139 @@ export default function HeroSection() {
             </Stack> */}
           </Box>
 
+          {/* RIGHT: visual card with floating badges */}
+          <Box
+            sx={{
+              position: "relative",
+       
+              display: "block" ,
+     
+              height: {
+                xs: 280,
+                sm: 380,
+                md: 380,
+              },
+              order: {
+                xs: -1,
+                md: 0,
+              },
+            }}
+          >
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "20px",
+                overflow: "hidden",
+                border: "1px solid rgba(0,0,0,0.06)",
+                boxShadow: "0 20px 40px rgba(0,0,0,0.08)",
+                order: {
+                  xs: -1,
+                  md: 0,
+                },
+              }}
+            >
+              <Image
+                src="https://cdn.prod.website-files.com/66902b0c958b1f38e1fdbb1c/67caf3563d41bd53cfd04811_shutterstock_2440733535.jpg"
+                alt="Veloura autumn collection"
+                fill
+                priority
+                style={{ objectFit: "cover" }}
+                sizes="(max-width: 900px) 100vw, 45vw"
+              />
+          
+            </Box>
 
+            {/* floating badge 1 */}
+            <Box
+              sx={{
+                position: "absolute",
+                top: 28,
+                right: -16,
+                bgcolor: "#fff",
+                borderRadius: "12px",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+                px: 2,
+                py: 1.2,
+                display: "flex",
+                alignItems: "center",
+                gap: 1.2,
+                /* display: {
+                  xs: "none",
+                  md: "flex",
+                }, */
+              }}
+            >
+              <Box
+                sx={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  bgcolor: "#e8f5e9",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <CheckIcon sx={{ fontSize: 18, color: "#2e7d32" }} />
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: "0.78rem", fontWeight: 600 }}>
+                  Free shipping
+                </Typography>
+                <Typography
+                  sx={{ fontSize: "0.7rem", color: "text.secondary" }}
+                >
+                  On orders over $50
+                </Typography>
+              </Box>
+            </Box>
 
-{/* RIGHT: visual card with floating badges */}
-<Box
-  sx={{
-    position: "relative",
-    height: { xs: 300, md: 380 },
-    display: { xs: "none", md: "block" },
-  }}
->
-  <Box
-    sx={{
-      position: "absolute",
-      inset: 0,
-      borderRadius: "20px",
-      overflow: "hidden",
-      border: "1px solid rgba(0,0,0,0.06)",
-      boxShadow: "0 20px 40px rgba(0,0,0,0.08)",
-    }}
-  >
-<Image
-  src="https://cdn.prod.website-files.com/66902b0c958b1f38e1fdbb1c/67caf3563d41bd53cfd04811_shutterstock_2440733535.jpg"
-  alt="Veloura autumn collection"
-  fill
-  priority
-  style={{ objectFit: "cover" }}
-  sizes="(max-width: 900px) 100vw, 45vw"
-/>
-  </Box>
-
-  {/* floating badge 1 */}
-  <Box
-    sx={{
-      position: "absolute",
-      top: 28,
-      right: -16,
-      bgcolor: "#fff",
-      borderRadius: "12px",
-      boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
-      px: 2,
-      py: 1.2,
-      display: "flex",
-      alignItems: "center",
-      gap: 1.2,
-    }}
-  >
-    <Box
-      sx={{
-        width: 34,
-        height: 34,
-        borderRadius: "50%",
-        bgcolor: "#e8f5e9",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <CheckIcon sx={{ fontSize: 18, color: "#2e7d32" }} />
-    </Box>
-    <Box>
-      <Typography sx={{ fontSize: "0.78rem", fontWeight: 600 }}>
-        Free shipping
-      </Typography>
-      <Typography sx={{ fontSize: "0.7rem", color: "text.secondary" }}>
-        On orders over $50
-      </Typography>
-    </Box>
-  </Box>
-
-  {/* floating badge 2 */}
-  <Box
-    sx={{
-      position: "absolute",
-      bottom: 28,
-      left: -16,
-      bgcolor: "#fff",
-      borderRadius: "12px",
-      boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
-      px: 2,
-      py: 1.2,
-      display: "flex",
-      alignItems: "center",
-      gap: 1.2,
-    }}
-  >
-    <Box
-      sx={{
-        width: 34,
-        height: 34,
-        borderRadius: "50%",
-        bgcolor: "#f3e5f5",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <StarIcon sx={{ fontSize: 18, color: "#8e24aa" }} />
-    </Box>
-    <Box>
-      <Typography sx={{ fontSize: "0.78rem", fontWeight: 600 }}>
-        New arrivals
-      </Typography>
-      <Typography sx={{ fontSize: "0.7rem", color: "text.secondary" }}>
-        Fresh drops weekly
-      </Typography>
-    </Box>
-  </Box>
-</Box>
+            {/* floating badge 2 */}
+            <Box
+              sx={{
+                position: "absolute",
+                bottom: 28,
+                left: -16,
+                bgcolor: "#fff",
+                borderRadius: "12px",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+                px: 2,
+                py: 1.2,
+                display: "flex",
+                alignItems: "center",
+                gap: 1.2,
+              /*   display: {
+                  xs: "none",
+                  md: "flex",
+                }, */
+              }}
+            >
+              <Box
+                sx={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  bgcolor: "#f3e5f5",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <StarIcon sx={{ fontSize: 18, color: "#8e24aa" }} />
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: "0.78rem", fontWeight: 600 }}>
+                  New arrivals
+                </Typography>
+                <Typography
+                  sx={{ fontSize: "0.7rem", color: "text.secondary" }}
+                >
+                  Fresh drops weekly
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
         </Box>
       </Container>
     </Box>

@@ -128,7 +128,12 @@ setWishlistMap(map);
               borderRadius: 0,
               bgcolor: "transparent",
               borderBottom: "1px solid #111",
-              px: 2,
+              px: {
+                xs: 0,
+                sm: 1,
+                md: 2,
+              },
+              mx:1,
               color: "black",
               textTransform: "none",
               fontSize: {
