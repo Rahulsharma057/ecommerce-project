@@ -25,9 +25,7 @@ export default function AdvertisementBanner() {
 
   const fetchAdvertisements = async () => {
     try {
-      const res = await axios.get(
-        `${API_URL}/advertisements/active`
-      );
+      const res = await axios.get(`${API_URL}/advertisements/active`);
       console.log(res.data.data);
 
       setAds(res.data.data || []);
@@ -55,11 +53,7 @@ export default function AdvertisementBanner() {
 
   if (loading) {
     return (
-      <Box
-        py={6}
-        display="flex"
-        justifyContent="center"
-      >
+      <Box py={6} display="flex" justifyContent="center">
         <CircularProgress />
       </Box>
     );
@@ -70,105 +64,155 @@ export default function AdvertisementBanner() {
   const ad = ads[current];
 
   return (
-    <Container maxWidth="xl" sx={{ my: 5, }}>
+    <Container maxWidth="xl" sx={{ my: 5 }}>
       <Paper
         elevation={0}
         sx={{
+          position: "relative",
           overflow: "hidden",
           borderRadius: 2,
-          bgcolor: "#111827",
-          color: "#fff",
+          minHeight: {
+            xs: 280,
+            md: 500,
+          },
+          display: "flex",
+          alignItems: "center",
         }}
       >
-        <Stack
-          direction={{
-            xs: "column",
-            md: "row",
+        {/* Background Image */}
+        <Image
+          src={ad.image}
+          alt={ad.title}
+          fill
+          priority
+          style={{
+            objectFit: "cover",
           }}
-          alignItems="center"
+        />
+
+        {/* Dark Overlay */}
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(90deg, rgba(0,0,0,0.7) 20%, rgba(0,0,0,0.35) 60%, rgba(0,0,0,0.15) 100%)",
+          }}
+        />
+
+        {/* Content */}
+        <Box
+          sx={{
+            position: "relative",
+            zIndex: 2,
+            color: "#fff",
+            maxWidth: {
+              xs: "100%",
+              md: "55%",
+            },
+            px: {
+              xs: 3,
+              md: 8,
+            },
+            py: {
+              xs: 3,
+              md: 8,
+            },
+          }}
         >
-          {/* LEFT */}
-          <Box
-            flex={1}
-            p={{
-              xs: 4,
-              md: 7,
-            }}
-          >
-            <Typography
-              variant="h3"
-              fontWeight={800}
-              gutterBottom
-            >
-              {ad.title}
-            </Typography>
-
-            <Typography
+          {ad.discount && (
+            <Box
               sx={{
-                opacity: 0.9,
-                mb: 4,
-                lineHeight: 1.8,
+                display: "inline-block",
+                bgcolor: "#e53935",
+                color: "#fff",
+                px:  {
+                  xs: 1.5,
+                  md: "0.95rem",
+                },
+                py: 0.4,
+                borderRadius: "50px",
+                fontWeight: 700,
+                fontSize: {
+                  xs: "0.5rem",
+                  md: "0.95rem",
+                },
+                mb: {
+                xs: 1,
+                md: 2,
+              },
+                boxShadow: "0 6px 20px rgba(229,57,53,.35)",
               }}
             >
-              {ad.description}
-            </Typography>
-
-            {ad.buttonText && (
-              <Button
-                component={Link}
-                href={ad.buttonLink || "/products"}
-                variant="contained"
-                sx={{
-                  bgcolor: "#fff",
-                  color: "#111",
-                  px: 4,
-                  py: 1.4,
-                  fontWeight: 700,
-                  borderRadius: 3,
-                  "&:hover": {
-                    bgcolor: "#f3f4f6",
-                  },
-                }}
-              >
-                {ad.buttonText}
-              </Button>
-            )}
-          </Box>
-
-       
-          <Box
+               {ad.discount} OFF
+            </Box>
+          )}
+          <Typography
+            variant="h3"
+            fontWeight={800}
+            gutterBottom
             sx={{
-              position: "relative",
-              width: {
-                xs: "100%",
-                md: 500,
-              },
-              height: {
-                xs: 260,
-                md: 420,
+              fontSize: {
+                xs: "1.5rem",
+                md: "3.5rem",
               },
             }}
           >
-            <Image
-              src={ad.image}
-              alt={ad.title}
-              fill
-              style={{
-                objectFit: "cover",
+            {ad.title}
+          </Typography>
+
+          <Typography
+            sx={{
+              opacity: 0.95,
+              mb:{
+                xs: 2,
+                md: 4,
+              },
+              lineHeight: {
+                xs: 1,
+                md: 1.5,
+              },
+              fontSize: {
+                xs: "0.85rem",
+                md: "1.1rem",
+              },
+              fontFamily:"ui-serif",
+            }}
+          >
+            {ad.description}
+          </Typography>
+
+          {ad.buttonText && (
+            <Button
+              component={Link}
+              href={ad.buttonLink || "/products"}
+              variant="contained"
+              sx={{
+                bgcolor: "#fff",
+                color: "#111",
+                px: {
+                xs: 2,
+                md: 4,
+              },
+                py:{
+                xs: 1,
+                md: 1,
+              },
+                fontWeight: 500,
+                borderRadius: "50px",
+                "&:hover": {
+                  bgcolor: "#f3f4f6",
+                },
               }}
-            />
-          </Box>
-        </Stack>
+            >
+              {ad.buttonText}
+            </Button>
+          )}
+        </Box>
       </Paper>
 
- 
       {ads.length > 1 && (
-        <Stack
-          direction="row"
-          justifyContent="center"
-          spacing={1}
-          mt={2}
-        >
+        <Stack direction="row" justifyContent="center" spacing={1} mt={2}>
           {ads.map((_, index) => (
             <Box
               key={index}
@@ -179,10 +223,7 @@ export default function AdvertisementBanner() {
                 borderRadius: 10,
                 cursor: "pointer",
                 transition: ".3s",
-                bgcolor:
-                  current === index
-                    ? "#111827"
-                    : "#d1d5db",
+                bgcolor: current === index ? "#111827" : "#d1d5db",
               }}
             />
           ))}

@@ -23,18 +23,13 @@ exports.createAdvertisement = async (req, res) => {
 
     const advertisement = await Advertisement.create({
       title: req.body.title,
-
       subtitle: req.body.subtitle || "",
-
+      description: req.body.description || "",
       discount: req.body.discount || "",
-
       buttonText: req.body.buttonText || "",
-
       buttonLink: req.body.buttonLink || "",
-
       status: req.body.status === "true" || req.body.status === true,
-
-      image: image,
+      image,
     });
 
     res.status(201).json({
@@ -166,7 +161,8 @@ exports.updateAdvertisement = async (req, res) => {
     advertisement.title = req.body.title ?? advertisement.title;
 
     advertisement.subtitle = req.body.subtitle ?? advertisement.subtitle;
-
+    advertisement.description =
+      req.body.description ?? advertisement.description;
     advertisement.discount = req.body.discount ?? advertisement.discount;
 
     advertisement.buttonText = req.body.buttonText ?? advertisement.buttonText;
@@ -177,7 +173,7 @@ exports.updateAdvertisement = async (req, res) => {
       advertisement.status =
         req.body.status === "true" || req.body.status === true;
     }
-
+    console.log(req.body);
     await advertisement.save();
 
     res.json({

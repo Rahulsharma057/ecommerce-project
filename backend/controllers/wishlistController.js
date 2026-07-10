@@ -20,10 +20,26 @@ exports.addToWishlist = async (req, res) => {
 };
 
 // GET
+// GET
 exports.getWishlist = async (req, res) => {
   try {
-    const items = await Wishlist.find({ userId: req.user.id }).populate("productId");
-    res.json(items);
+    const items = await Wishlist.find({
+      userId: req.user.id,
+    }).populate("productId");
+
+    const invalidIds = items
+      .filter((item) => !item.productId)
+      .map((item) => item._id);
+
+    if (invalidIds.length) {
+      await Wishlist.deleteMany({
+        _id: { $in: invalidIds },
+      });
+    }
+
+    const validItems = items.filter((item) => item.productId);
+
+    res.json(validItems);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

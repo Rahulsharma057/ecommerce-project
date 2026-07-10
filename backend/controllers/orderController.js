@@ -86,27 +86,59 @@ exports.getMyOrders = async (req, res) => {
 exports.cancelOrder = async (req, res) => {
   try {
     const { reason } = req.body;
+
     const order = await Order.findById(req.params.id);
 
     if (!order) {
-      return res.status(404).json({ message: "Order not found" });
+      return res.status(404).json({
+        message: "Order not found",
+      });
     }
 
-    // USER rule: only pending cancel
-    if (req.user.role !== "admin" && order.status !== "Pending") {
-      return res.status(400).json({ message: "You can only cancel pending orders" });
+    // Already cancelled
+    if (order.status === "Cancelled") {
+      return res.status(400).json({
+        message: "Order is already cancelled",
+      });
+    }
+
+    // USER can cancel only Pending order
+    if (
+      req.user.role !== "admin" &&
+      order.status !== "Pending"
+    ) {
+      return res.status(400).json({
+        message: "You can only cancel pending orders",
+      });
+    }
+
+    // Restore stock
+    for (const item of order.items) {
+      await Product.findByIdAndUpdate(
+        item.productId,
+        {
+          $inc: {
+            stock: item.quantity,
+          },
+        }
+      );
     }
 
     order.status = "Cancelled";
-    order.cancelReason = reason;
+    order.cancelReason = reason || "";
     order.cancelledBy = req.user.role;
     order.cancelledAt = new Date();
 
     await order.save();
 
-    res.json({ message: "Order cancelled", order });
+    res.json({
+      message: "Order cancelled successfully",
+      order,
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      message: err.message,
+    });
   }
 };
 // =========================

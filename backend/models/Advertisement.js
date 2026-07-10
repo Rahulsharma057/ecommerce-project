@@ -24,7 +24,10 @@ const advertisementSchema = new mongoose.Schema(
         type:String,
         default:""
     },
-
+   description:{
+        type:String,
+        default:""
+    },
 
     buttonText:{
         type:String,

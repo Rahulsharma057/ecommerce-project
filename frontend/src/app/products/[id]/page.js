@@ -69,15 +69,13 @@ export default function ProductDetailsPage() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [comment, setComment] = useState("");
   const [showAllReviews, setShowAllReviews] = useState(false);
-    const [userId, setUserId] = useState("");
+  const [userId, setUserId] = useState("");
   const displayedReviews = showAllReviews
     ? product?.reviews || []
     : product?.reviews?.slice(0, 4) || [];
   const hasReviewed = product?.reviews?.some(
     (review) => review.userId === userId,
   );
-
-
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -271,6 +269,7 @@ export default function ProductDetailsPage() {
       }
       toast.success("Product added to cart successfully.");
       window.dispatchEvent(new Event("cart-update"));
+      setQuantity(1);
     } catch (err) {
       toast.error("Failed to add product to cart.");
     } finally {
@@ -366,7 +365,6 @@ export default function ProductDetailsPage() {
         return;
       }
 
-    
       toast.success(data.message || "Thank you for your valuable feedback ❤️");
       // reset form
       setComment("");
@@ -513,22 +511,37 @@ export default function ProductDetailsPage() {
                 )}
               </IconButton>
 
-              {product.isSale && (
-                <Chip
-                  label="SALE"
-                  size="small"
-                  sx={{
-                    position: "absolute",
-                    top: 14,
-                    left: 14,
-                    bgcolor: "#ef4444",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: 11,
-                    letterSpacing: 0.5,
-                  }}
-                />
-              )}
+         {product.stock <= 0 ? (
+  <Chip
+    label="OUT OF STOCK"
+    size="small"
+    sx={{
+      position: "absolute",
+      top: 14,
+      left: 14,
+      bgcolor: "#111",
+      color: "#fff",
+      fontWeight: 700,
+      fontSize: 11,
+      letterSpacing: 0.5,
+    }}
+  />
+) : product.isSale ? (
+  <Chip
+    label="SALE"
+    size="small"
+    sx={{
+      position: "absolute",
+      top: 14,
+      left: 14,
+      bgcolor: "#ef4444",
+      color: "#fff",
+      fontWeight: 700,
+      fontSize: 11,
+      letterSpacing: 0.5,
+    }}
+  />
+) : null}
             </Box>
 
             {product.images?.length > 1 && (
@@ -706,12 +719,22 @@ export default function ProductDetailsPage() {
               </Typography>
 
               <IconButton
-                onClick={() =>
-                  setQuantity((prev) =>
-                    prev < product.stock ? prev + 1 : prev,
-                  )
-                }
-                disabled={quantity >= product.stock}
+                onClick={() => {
+    if (product.stock === 0) {
+      toast.warning("This product is currently out of stock.");
+      return;
+    }
+
+    if (quantity >= product.stock) {
+      toast.info(
+        `Only ${product.stock} item${product.stock > 1 ? "s" : ""} available in stock.`
+      );
+      return;
+    }
+
+    setQuantity((prev) => prev + 1);
+  }}
+              //  disabled={quantity >= product.stock}
                 size="small"
                 sx={{ borderRadius: 0, px: 1.3 }}
               >
@@ -863,507 +886,539 @@ export default function ProductDetailsPage() {
           </Paper>
 
           {/* ================= WRITE A REVIEW ================= */}
-        <Paper
-  elevation={0}
-  sx={{
-    mt: 3,
-    p: { xs: 2, sm: 3 },
-    borderRadius: 3,
-    border: "1px solid #eef0f3",
-    background: hasReviewed && !editingReviewId
-      ? "#fafafa"
-      : "#fff",
-  }}
->
-  <Stack direction="row" alignItems="center" spacing={1.2} mb={2.5}>
-    <Box
-      sx={{
-        width: 38,
-        height: 38,
-        borderRadius: 2,
-        bgcolor: "#f5f3ff",
-        color: "#7c3aed",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
-    >
-      <RateReviewOutlinedIcon sx={{ fontSize: 19 }} />
-    </Box>
-    <Box>
-      <Typography
-        sx={{
-          fontWeight: 700,
-          color: "#0f172a",
-          fontSize: { xs: 15, sm: 16.5 },
-          lineHeight: 1.3,
-        }}
-      >
-        {editingReviewId ? "Edit Your Review" : "Write a Review"}
-      </Typography>
-      {!editingReviewId && (
-        <Typography
-          sx={{
-            fontSize: { xs: 12, sm: 12.5 },
-            color: "#94a3b8",
-            mt: 0.2,
-          }}
-        >
-          Share your honest experience with this product
-        </Typography>
-      )}
-    </Box>
-  </Stack>
-
-  {/* Already reviewed banner */}
-  {hasReviewed && !editingReviewId && (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 1,
-        bgcolor: "#f1f5f9",
-        border: "1px solid #e2e8f0",
-        borderRadius: 2,
-        px: 2,
-        py: 1.2,
-        mb: 2.5,
-      }}
-    >
-      <CheckCircleOutlineIcon sx={{ fontSize: 18, color: "#64748b" }} />
-      <Typography sx={{ fontSize: 13, color: "#475569" }}>
-        You've already reviewed this product. Edit it from the list below.
-      </Typography>
-    </Box>
-  )}
-
-  <Box
-    sx={{
-      opacity: !editingReviewId && hasReviewed ? 0.55 : 1,
-      pointerEvents: !editingReviewId && hasReviewed ? "none" : "auto",
-      transition: "opacity 0.2s",
-    }}
-  >
-    
-
-    <Rating
-      value={rating}
-      onChange={(e, newValue) => setRating(newValue || 0)}
-      sx={{
-        mb: 2.5,
-        fontSize: { xs: 20, sm: 24 },
-     
-        color: "#f59e0b",
-      }}
-      disabled={!editingReviewId && hasReviewed}
-    />
-
-
-    <TextField
-      fullWidth
-      multiline
-      rows={3}
-      value={comment}
-      onChange={(e) => setComment(e.target.value)}
-      placeholder="What did you like or dislike? How did you use this product?"
-      disabled={submittingReview || (!editingReviewId && hasReviewed)}
-      inputProps={{ maxLength: 500 }}
-      helperText={`${comment?.length || 0}/500`}
-      FormHelperTextProps={{
-        sx: { textAlign: "right", mx: 0, fontSize: 11.5, color: "#94a3b8" },
-      }}
-      sx={{
-        mb: 1,
-        "& .MuiOutlinedInput-root": {
-          borderRadius: 2,
-          fontSize: 14,
-          bgcolor: "#fff",
-          "& fieldset": { borderColor: "#e2e8f0" },
-          "&:hover fieldset": { borderColor: "#94a3b8" },
-          "&.Mui-focused fieldset": { borderColor: "#4f46e5", borderWidth: 1.5 },
-        },
-      }}
-    />
-
-    <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} mt={0}>
-      <Button
-        variant="contained"
-        fullWidth
-        onClick={editingReviewId ? updateReview : submitReview}
-        disabled={
-          submittingReview ||
-          (!editingReviewId && hasReviewed) ||
-          !rating ||
-          !comment?.trim()
-        }
-        sx={{
-          textTransform: "none",
-          fontWeight: 600,
-          fontSize: 14,
-          borderRadius: 2,
-          bgcolor: "#111827",
-          boxShadow: "none",
-          py: { xs: 1.1, sm: 1.2 },
-          width: { xs: "100%", sm: "auto" },
-          px: { sm: 4 },
-          "&:hover": { bgcolor: "#000", boxShadow: "none" },
-          "&.Mui-disabled": {
-            bgcolor: "#e2e8f0",
-            color: "#94a3b8",
-          },
-        }}
-      >
-        {submittingReview
-          ? editingReviewId
-            ? "Updating..."
-            : "Submitting..."
-          : editingReviewId
-            ? "Update Review"
-            : "Submit Review"}
-      </Button>
-
-      {editingReviewId && (
-        <Button
-          variant="outlined"
-          fullWidth
-          onClick={() => {
-            setEditingReviewId(null);
-            setRating(0);
-            setComment("");
-          }}
-          sx={{
-            textTransform: "none",
-            fontWeight: 600,
-            fontSize: 14,
-            borderRadius: 2,
-            borderColor: "#e2e8f0",
-            color: "#475569",
-            width: { xs: "100%", sm: "auto" },
-            px: { sm: 3 },
-            "&:hover": {
-              borderColor: "#cbd5e1",
-              bgcolor: "#f8fafc",
-            },
-          }}
-        >
-          Cancel
-        </Button>
-      )}
-    </Stack>
-  </Box>
-</Paper>
-
-          {/* ================= REVIEWS LIST ================= */}
-        <Box mt={5}>
-  {/* ===== Header with rating summary ===== */}
-  <Stack
-    direction={{ xs: "column", sm: "row" }}
-    justifyContent="space-between"
-    alignItems={{ xs: "flex-start", sm: "center" }}
-    spacing={1.5}
-    mb={3}
-  >
-    <Typography
-      variant="h5"
-      fontWeight={700}
-      sx={{
-        color: "#111827",
-        fontSize: { xs: "1.15rem", sm: "1.5rem" },
-      }}
-    >
-      Customer Reviews ({product.reviews?.length || 0})
-    </Typography>
-
-    {product.reviews?.length > 0 && (
-      <Box
-        sx={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 0.6,
-          bgcolor: "#fff8e1",
-          border: "1px solid #ffe082",
-          borderRadius: 5,
-          px: 1.5,
-          py: 0.6,
-        }}
-      >
-        <StarIcon sx={{ fontSize: 18, color: "#f59e0b" }} />
-        <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#78350f" }}>
-          {(
-            product.reviews.reduce((sum, r) => sum + r.rating, 0) /
-            product.reviews.length
-          ).toFixed(1)}
-        </Typography>
-        <Typography sx={{ fontSize: 12.5, color: "#92700a" }}>
-          out of 5
-        </Typography>
-      </Box>
-    )}
-  </Stack>
-
-  {displayedReviews?.length === 0 ? (
-    <Paper
-      elevation={0}
-      sx={{
-        p: { xs: 3, sm: 5 },
-        textAlign: "center",
-        border: "1px dashed #d1d5db",
-        borderRadius: 3,
-        bgcolor: "#fafafa",
-      }}
-    >
-      <RateReviewOutlinedIcon sx={{ fontSize: 32, color: "#cbd5e1", mb: 1 }} />
-      <Typography
-        color="text.secondary"
-        sx={{ fontSize: { xs: 13.5, sm: 14 } }}
-      >
-        No reviews yet. Be the first to review this product ⭐
-      </Typography>
-    </Paper>
-  ) : (
-    <Stack spacing={{ xs: 2, sm: 2.5 }}>
-      {displayedReviews?.map((review, index) => (
-        <Paper
-          key={review._id || index}
-          elevation={0}
-          sx={{
-            p: { xs: 2, sm: 3 },
-            borderRadius: 3,
-            border: "1px solid #e5e7eb",
-            transition: "0.3s",
-            "&:hover": {
-              boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
-            },
-          }}
-        >
-          <Stack
-            direction="row"
-            spacing={{ xs: 1.2, sm: 2 }}
-            alignItems="flex-start"
+          <Paper
+            elevation={0}
+            sx={{
+              mt: 3,
+              p: { xs: 2, sm: 3 },
+              borderRadius: 3,
+              border: "1px solid #eef0f3",
+              background: hasReviewed && !editingReviewId ? "#fafafa" : "#fff",
+            }}
           >
-            <Avatar
+            <Stack direction="row" alignItems="center" spacing={1.2} mb={2.5}>
+              <Box
+                sx={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 2,
+                  bgcolor: "#f5f3ff",
+                  color: "#7c3aed",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <RateReviewOutlinedIcon sx={{ fontSize: 19 }} />
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    color: "#0f172a",
+                    fontSize: { xs: 15, sm: 16.5 },
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {editingReviewId ? "Edit Your Review" : "Write a Review"}
+                </Typography>
+                {!editingReviewId && (
+                  <Typography
+                    sx={{
+                      fontSize: { xs: 12, sm: 12.5 },
+                      color: "#94a3b8",
+                      mt: 0.2,
+                    }}
+                  >
+                    Share your honest experience with this product
+                  </Typography>
+                )}
+              </Box>
+            </Stack>
+
+            {/* Already reviewed banner */}
+            {hasReviewed && !editingReviewId && (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  bgcolor: "#f1f5f9",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 2,
+                  px: 2,
+                  py: 1.2,
+                  mb: 2.5,
+                }}
+              >
+                <CheckCircleOutlineIcon
+                  sx={{ fontSize: 18, color: "#64748b" }}
+                />
+                <Typography sx={{ fontSize: 13, color: "#475569" }}>
+                  You've already reviewed this product. Edit it from the list
+                  below.
+                </Typography>
+              </Box>
+            )}
+
+            <Box
               sx={{
-                bgcolor: "#111",
-                width: { xs: 38, sm: 48 },
-                height: { xs: 38, sm: 48 },
-                fontWeight: 700,
-                fontSize: { xs: 14, sm: 16 },
-                flexShrink: 0,
+                opacity: !editingReviewId && hasReviewed ? 0.55 : 1,
+                pointerEvents:
+                  !editingReviewId && hasReviewed ? "none" : "auto",
+                transition: "opacity 0.2s",
               }}
             >
-              {review.name?.charAt(0).toUpperCase() || "U"}
-            </Avatar>
+              <Rating
+                value={rating}
+                onChange={(e, newValue) => setRating(newValue || 0)}
+                sx={{
+                  mb: 2.5,
+                  fontSize: { xs: 20, sm: 24 },
 
-            <Box flex={1} minWidth={0}>
+                  color: "#f59e0b",
+                }}
+                disabled={!editingReviewId && hasReviewed}
+              />
+
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="What did you like or dislike? How did you use this product?"
+                disabled={submittingReview || (!editingReviewId && hasReviewed)}
+                inputProps={{ maxLength: 500 }}
+                helperText={`${comment?.length || 0}/500`}
+                FormHelperTextProps={{
+                  sx: {
+                    textAlign: "right",
+                    mx: 0,
+                    fontSize: 11.5,
+                    color: "#94a3b8",
+                  },
+                }}
+                sx={{
+                  mb: 1,
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 2,
+                    fontSize: 14,
+                    bgcolor: "#fff",
+                    "& fieldset": { borderColor: "#e2e8f0" },
+                    "&:hover fieldset": { borderColor: "#94a3b8" },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#4f46e5",
+                      borderWidth: 1.5,
+                    },
+                  },
+                }}
+              />
+
               <Stack
-                direction={{ xs: "row", sm: "row" }}
-                justifyContent="space-between"
-                alignItems={{ xs: "flex-start", sm: "flex-start" }}
-                spacing={1}
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                mt={0}
               >
-                <Box>
-                  {/* User Name */}
-                  <Stack direction="row" alignItems="center" spacing={0.8} flexWrap="wrap">
-                    <Typography
-                      sx={{
-                        fontSize: { xs: 14, sm: 16 },
-                        fontWeight: 700,
-                        color: "#111827",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {review.name || "Anonymous User"}
-                    </Typography>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={editingReviewId ? updateReview : submitReview}
+                  disabled={
+                    submittingReview ||
+                    (!editingReviewId && hasReviewed) ||
+                    !rating ||
+                    !comment?.trim()
+                  }
+                  sx={{
+                    textTransform: "none",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    borderRadius: 2,
+                    bgcolor: "#111827",
+                    boxShadow: "none",
+                    py: { xs: 1.1, sm: 1.2 },
+                    width: { xs: "100%", sm: "auto" },
+                    px: { sm: 4 },
+                    "&:hover": { bgcolor: "#000", boxShadow: "none" },
+                    "&.Mui-disabled": {
+                      bgcolor: "#e2e8f0",
+                      color: "#94a3b8",
+                    },
+                  }}
+                >
+                  {submittingReview
+                    ? editingReviewId
+                      ? "Updating..."
+                      : "Submitting..."
+                    : editingReviewId
+                      ? "Update Review"
+                      : "Submit Review"}
+                </Button>
 
-                    {review.userId === userId && (
-                      <Box
-                        sx={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 0.4,
-                          bgcolor: "#eef2ff",
-                          color: "#4f46e5",
-                          borderRadius: 4,
-                          px: 0.9,
-                          py: 0.15,
-                        }}
-                      >
-                        <PersonIcon sx={{ fontSize: 12 }} />
-                        <Typography sx={{ fontSize: 10.5, fontWeight: 700 }}>
-                          You
-                        </Typography>
-                      </Box>
-                    )}
-                  </Stack>
-
-                  {/* Review Date */}
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    spacing={0.5}
-                    mt={0.4}
+                {editingReviewId && (
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    onClick={() => {
+                      setEditingReviewId(null);
+                      setRating(0);
+                      setComment("");
+                    }}
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 600,
+                      fontSize: 14,
+                      borderRadius: 2,
+                      borderColor: "#e2e8f0",
+                      color: "#475569",
+                      width: { xs: "100%", sm: "auto" },
+                      px: { sm: 3 },
+                      "&:hover": {
+                        borderColor: "#cbd5e1",
+                        bgcolor: "#f8fafc",
+                      },
+                    }}
                   >
-                    <CalendarTodayOutlinedIcon
-                      sx={{ fontSize: 12, color: "#9ca3af" }}
-                    />
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: "#9ca3af",
-                        fontSize: { xs: 11, sm: 12 },
-                      }}
-                    >
-                      {new Date(review.createdAt).toLocaleDateString(
-                        "en-IN",
-                        {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        },
-                      )}
-                    </Typography>
-                  </Stack>
-                </Box>
+                    Cancel
+                  </Button>
+                )}
+              </Stack>
+            </Box>
+          </Paper>
 
-                {/* Rating */}
+          {/* ================= REVIEWS LIST ================= */}
+          <Box mt={5}>
+            {/* ===== Header with rating summary ===== */}
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", sm: "center" }}
+              spacing={1.5}
+              mb={3}
+            >
+              <Typography
+                variant="h5"
+                fontWeight={700}
+                sx={{
+                  color: "#111827",
+                  fontSize: { xs: "1.15rem", sm: "1.5rem" },
+                }}
+              >
+                Customer Reviews ({product.reviews?.length || 0})
+              </Typography>
+
+              {product.reviews?.length > 0 && (
                 <Box
                   sx={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 0.4,
+                    gap: 0.6,
                     bgcolor: "#fff8e1",
-                    px: 1.2,
-                    py: 0.5,
-                    borderRadius: 5,
                     border: "1px solid #ffe082",
-                    flexShrink: 0,
+                    borderRadius: 5,
+                    px: 1.5,
+                    py: 0.6,
                   }}
                 >
-                  <StarIcon sx={{ fontSize: 15, color: "#f59e0b" }} />
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#78350f" }}>
-                    {review.rating}
+                  <StarIcon sx={{ fontSize: 18, color: "#f59e0b" }} />
+                  <Typography
+                    sx={{ fontSize: 14, fontWeight: 700, color: "#78350f" }}
+                  >
+                    {(
+                      product.reviews.reduce((sum, r) => sum + r.rating, 0) /
+                      product.reviews.length
+                    ).toFixed(1)}
+                  </Typography>
+                  <Typography sx={{ fontSize: 12.5, color: "#92700a" }}>
+                    out of 5
                   </Typography>
                 </Box>
-              </Stack>
+              )}
+            </Stack>
 
-              <Typography
+            {displayedReviews?.length === 0 ? (
+              <Paper
+                elevation={0}
                 sx={{
-                  mt: 1.5,
-                  color: "#4b5563",
-                  lineHeight: 1.7,
-                  fontSize: { xs: 13, sm: 14 },
-                  wordBreak: "break-word",
+                  p: { xs: 3, sm: 5 },
+                  textAlign: "center",
+                  border: "1px dashed #d1d5db",
+                  borderRadius: 3,
+                  bgcolor: "#fafafa",
                 }}
               >
-                {review.comment}
-              </Typography>
-
-              {review.userId === userId && (
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  mt={2}
-                  alignItems="center"
-                  flexWrap="wrap"
+                <RateReviewOutlinedIcon
+                  sx={{ fontSize: 32, color: "#cbd5e1", mb: 1 }}
+                />
+                <Typography
+                  color="text.secondary"
+                  sx={{ fontSize: { xs: 13.5, sm: 14 } }}
                 >
-                  <Button
-                    size="small"
-                    startIcon={<EditOutlinedIcon sx={{ fontSize: 15 }} />}
+                  No reviews yet. Be the first to review this product ⭐
+                </Typography>
+              </Paper>
+            ) : (
+              <Stack spacing={{ xs: 2, sm: 2.5 }}>
+                {displayedReviews?.map((review, index) => (
+                  <Paper
+                    key={review._id || index}
+                    elevation={0}
                     sx={{
-                      fontSize: { xs: 12, sm: 12.5 },
-                      color: "#475569",
-                      textTransform: "none",
-                      fontWeight: 600,
-                      "&:hover": { bgcolor: "#f1f5f9" },
-                    }}
-                    onClick={() => {
-                      setEditingReviewId(review._id);
-                      setRating(review.rating);
-                      setComment(review.comment);
+                      p: { xs: 2, sm: 3 },
+                      borderRadius: 3,
+                      border: "1px solid #e5e7eb",
+                      transition: "0.3s",
+                      "&:hover": {
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
+                      },
                     }}
                   >
-                    Edit
-                  </Button>
-
-                  <Button
-                    size="small"
-                    startIcon={<DeleteOutlineIcon sx={{ fontSize: 15 }} />}
-                    sx={{
-                      fontSize: { xs: 12, sm: 12.5 },
-                      color: "#dc2626",
-                      textTransform: "none",
-                      fontWeight: 600,
-                      "&:hover": { bgcolor: "#fef2f2" },
-                    }}
-                    onClick={() => {
-                      setSelectedReviewId(review._id);
-                      setDeleteDialogOpen(true);
-                    }}
-                  >
-                    Delete
-                  </Button>
-
-                  {editingReviewId === review._id && (
-                    <Button
-                      size="small"
-                      startIcon={<CloseIcon sx={{ fontSize: 15 }} />}
-                      sx={{
-                        fontSize: { xs: 12, sm: 12.5 },
-                        color: "#6b7280",
-                        textTransform: "none",
-                        fontWeight: 600,
-                        "&:hover": { bgcolor: "#f8fafc" },
-                      }}
-                      onClick={() => {
-                        setEditingReviewId(null);
-                        setRating(0);
-                        setComment("");
-                      }}
+                    <Stack
+                      direction="row"
+                      spacing={{ xs: 1.2, sm: 2 }}
+                      alignItems="flex-start"
                     >
-                      Cancel
-                    </Button>
-                  )}
-                </Stack>
-              )}
-            </Box>
-          </Stack>
-        </Paper>
-      ))}
-    </Stack>
-  )}
+                      <Avatar
+                        sx={{
+                          bgcolor: "#111",
+                          width: { xs: 38, sm: 48 },
+                          height: { xs: 38, sm: 48 },
+                          fontWeight: 700,
+                          fontSize: { xs: 14, sm: 16 },
+                          flexShrink: 0,
+                        }}
+                      >
+                        {review.name?.charAt(0).toUpperCase() || "U"}
+                      </Avatar>
 
-  {product.reviews?.length > 4 && (
-    <Box textAlign="center" mt={4}>
-      <Button
-        variant="contained"
-        onClick={() => setShowAllReviews((prev) => !prev)}
-        endIcon={
-          showAllReviews ? (
-            <KeyboardArrowUpIcon />
-          ) : (
-            <KeyboardArrowDownIcon />
-          )
-        }
-        sx={{
-          borderRadius: 10,
-          px: { xs: 3, sm: 4 },
-          py: { xs: 1, sm: 1.2 },
-          fontSize: { xs: 13, sm: 14 },
-          bgcolor: "#111",
-          textTransform: "none",
-          fontWeight: 600,
-          width: { xs: "100%", sm: "auto" },
-          "&:hover": {
-            bgcolor: "#333",
-          },
-        }}
-      >
-        {showAllReviews ? "Show Less Reviews" : "View All Reviews"}
-      </Button>
-    </Box>
-  )}
-</Box>
+                      <Box flex={1} minWidth={0}>
+                        <Stack
+                          direction={{ xs: "row", sm: "row" }}
+                          justifyContent="space-between"
+                          alignItems={{ xs: "flex-start", sm: "flex-start" }}
+                          spacing={1}
+                        >
+                          <Box>
+                            {/* User Name */}
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={0.8}
+                              flexWrap="wrap"
+                            >
+                              <Typography
+                                sx={{
+                                  fontSize: { xs: 14, sm: 16 },
+                                  fontWeight: 700,
+                                  color: "#111827",
+                                  wordBreak: "break-word",
+                                }}
+                              >
+                                {review.name || "Anonymous User"}
+                              </Typography>
+
+                              {review.userId === userId && (
+                                <Box
+                                  sx={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 0.4,
+                                    bgcolor: "#eef2ff",
+                                    color: "#4f46e5",
+                                    borderRadius: 4,
+                                    px: 0.9,
+                                    py: 0.15,
+                                  }}
+                                >
+                                  <PersonIcon sx={{ fontSize: 12 }} />
+                                  <Typography
+                                    sx={{ fontSize: 10.5, fontWeight: 700 }}
+                                  >
+                                    You
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Stack>
+
+                            {/* Review Date */}
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={0.5}
+                              mt={0.4}
+                            >
+                              <CalendarTodayOutlinedIcon
+                                sx={{ fontSize: 12, color: "#9ca3af" }}
+                              />
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: "#9ca3af",
+                                  fontSize: { xs: 11, sm: 12 },
+                                }}
+                              >
+                                {new Date(review.createdAt).toLocaleDateString(
+                                  "en-IN",
+                                  {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  },
+                                )}
+                              </Typography>
+                            </Stack>
+                          </Box>
+
+                          {/* Rating */}
+                          <Box
+                            sx={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 0.4,
+                              bgcolor: "#fff8e1",
+                              px: 1.2,
+                              py: 0.5,
+                              borderRadius: 5,
+                              border: "1px solid #ffe082",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <StarIcon sx={{ fontSize: 15, color: "#f59e0b" }} />
+                            <Typography
+                              sx={{
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: "#78350f",
+                              }}
+                            >
+                              {review.rating}
+                            </Typography>
+                          </Box>
+                        </Stack>
+
+                        <Typography
+                          sx={{
+                            mt: 1.5,
+                            color: "#4b5563",
+                            lineHeight: 1.7,
+                            fontSize: { xs: 13, sm: 14 },
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {review.comment}
+                        </Typography>
+
+                        {review.userId === userId && (
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            mt={2}
+                            alignItems="center"
+                            flexWrap="wrap"
+                          >
+                            <Button
+                              size="small"
+                              startIcon={
+                                <EditOutlinedIcon sx={{ fontSize: 15 }} />
+                              }
+                              sx={{
+                                fontSize: { xs: 12, sm: 12.5 },
+                                color: "#475569",
+                                textTransform: "none",
+                                fontWeight: 600,
+                                "&:hover": { bgcolor: "#f1f5f9" },
+                              }}
+                              onClick={() => {
+                                setEditingReviewId(review._id);
+                                setRating(review.rating);
+                                setComment(review.comment);
+                              }}
+                            >
+                              Edit
+                            </Button>
+
+                            <Button
+                              size="small"
+                              startIcon={
+                                <DeleteOutlineIcon sx={{ fontSize: 15 }} />
+                              }
+                              sx={{
+                                fontSize: { xs: 12, sm: 12.5 },
+                                color: "#dc2626",
+                                textTransform: "none",
+                                fontWeight: 600,
+                                "&:hover": { bgcolor: "#fef2f2" },
+                              }}
+                              onClick={() => {
+                                setSelectedReviewId(review._id);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              Delete
+                            </Button>
+
+                            {editingReviewId === review._id && (
+                              <Button
+                                size="small"
+                                startIcon={<CloseIcon sx={{ fontSize: 15 }} />}
+                                sx={{
+                                  fontSize: { xs: 12, sm: 12.5 },
+                                  color: "#6b7280",
+                                  textTransform: "none",
+                                  fontWeight: 600,
+                                  "&:hover": { bgcolor: "#f8fafc" },
+                                }}
+                                onClick={() => {
+                                  setEditingReviewId(null);
+                                  setRating(0);
+                                  setComment("");
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                          </Stack>
+                        )}
+                      </Box>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            )}
+
+            {product.reviews?.length > 4 && (
+              <Box textAlign="center" mt={4}>
+                <Button
+                  variant="contained"
+                  onClick={() => setShowAllReviews((prev) => !prev)}
+                  endIcon={
+                    showAllReviews ? (
+                      <KeyboardArrowUpIcon />
+                    ) : (
+                      <KeyboardArrowDownIcon />
+                    )
+                  }
+                  sx={{
+                    borderRadius: 10,
+                    px: { xs: 3, sm: 4 },
+                    py: { xs: 1, sm: 1.2 },
+                    fontSize: { xs: 13, sm: 14 },
+                    bgcolor: "#111",
+                    textTransform: "none",
+                    fontWeight: 600,
+                    width: { xs: "100%", sm: "auto" },
+                    "&:hover": {
+                      bgcolor: "#333",
+                    },
+                  }}
+                >
+                  {showAllReviews ? "Show Less Reviews" : "View All Reviews"}
+                </Button>
+              </Box>
+            )}
+          </Box>
         </Grid>
 
         {/* ================= RELATED PRODUCTS ================= */}

@@ -4,148 +4,109 @@ import {
   DialogTitle,
   DialogContent,
   IconButton,
-  Card,CardContent,Button,Typography,Grid,Box,TextField,Input,Stack
+  Card,
+  CardContent,
+  Button,
+  Typography,
+  Grid,
+  Box,
+  TextField,
+  Input,
+  Stack,
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
-const LuxuryStoryForm = ({
-  initialData,
-  onClose,
-  onSave,
-}) => {
-    const [loading,setLoading] = useState(false);
+const LuxuryStoryForm = ({ initialData, onClose, onSave }) => {
+  const [loading, setLoading] = useState(false);
 
-const [imageFile,setImageFile] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
 
+  const [form, setForm] = useState(
+    initialData || {
+      image: "",
 
-const [form,setForm] = useState(
-initialData || {
+      tagline: "",
 
-image:"",
+      title: "",
 
-tagline:"",
+      description: "",
 
-title:"",
+      established: "",
 
-description:"",
+      floatingTitle: "",
 
-established:"",
+      floatingDescription: "",
 
-floatingTitle:"",
+      statOne: {
+        number: "",
+        title: "",
+      },
 
-floatingDescription:"",
+      statTwo: {
+        number: "",
+        title: "",
+      },
 
-statOne:{
- number:"",
- title:""
-},
+      statThree: {
+        number: "",
+        title: "",
+      },
 
-statTwo:{
- number:"",
- title:""
-},
+      buttonText: "",
 
-statThree:{
- number:"",
- title:""
-},
+      buttonLink: "",
+    },
+  );
+  useEffect(() => {
+    if (initialData) {
+      setForm(initialData);
+    }
+  }, [initialData]);
+  const handleImage = (e) => {
+    const file = e.target.files[0];
 
-buttonText:"",
+    if (!file) return;
 
-buttonLink:""
+    setImageFile(file);
 
+    setForm((prev) => ({
+      ...prev,
+      image: URL.createObjectURL(file),
+    }));
+  };
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+
+      const data = new FormData();
+
+      Object.keys(form).forEach((key) => {
+        if (key === "statOne" || key === "statTwo" || key === "statThree") {
+          data.append(key, JSON.stringify(form[key]));
+        } else if (key !== "image") {
+          data.append(key, form[key]);
+        }
+      });
+
+      if (imageFile) {
+        data.append("image", imageFile);
+      }
+for (const [key, value] of data.entries()) {
+  console.log(key, value);
 }
-);
-useEffect(()=>{
+console.log(form);
+console.log(form.statOne);
+console.log(form.statTwo);
+console.log(form.statThree);
+      console.log("data", data);
 
-if(initialData){
-
-setForm(initialData);
-
-}
-
-},[initialData]);
-const handleImage=(e)=>{
-
-const file=e.target.files[0];
-
-if(!file) return;
-
-
-setImageFile(file);
-
-
-setForm(prev=>({
-...prev,
-image:URL.createObjectURL(file)
-}));
-
-};
-const handleSubmit=async()=>{
-
-try{
-
-setLoading(true);
-
-
-const data=new FormData();
-
-
-Object.keys(form).forEach((key)=>{
-
-
-if(
-key==="statOne" ||
-key==="statTwo" ||
-key==="statThree"
-){
-
-data.append(
-key,
-JSON.stringify(form[key])
-);
-
-}
-else if(key!=="image"){
-
-data.append(
-key,
-form[key]
-);
-
-}
-
-
-});
-
-
-if(imageFile){
-
-data.append(
-"image",
-imageFile
-);
-
-}
-
-
-
-await onSave(data);
-
-
-}
-catch(err){
-
-console.log(err);
-
-}
-finally{
-
-setLoading(false);
-
-}
-
-};
+      await onSave(data);
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <Dialog open maxWidth="md" fullWidth>
       <DialogTitle>
@@ -194,6 +155,7 @@ setLoading(false);
                 <TextField
                   fullWidth
                   label="Tagline"
+                  name="tagline"
                   value={form.tagline}
                   onChange={(e) =>
                     setForm({

@@ -12,7 +12,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
+  DialogActions,Chip
 } from "@mui/material";
 
 import Link from "next/link";
@@ -189,8 +189,8 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
             objectFit: "cover",
           }}
         />
-        {product.stock === 0 && (
-          <Box
+        {product.stock <= 0 ? (
+   <Box
             sx={{
               position: "absolute",
               top: 10,
@@ -207,7 +207,25 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
           >
             Out of Stock
           </Box>
-        )}
+) : product.isSale ? (
+  <Chip
+    label="Sale"
+    size="small"
+    sx={{
+      position: "absolute",
+      top: 14,
+      left: 14,
+      bgcolor: "#ef4444",
+      color: "#fff",
+      fontWeight: 700,
+      fontSize: 11,
+      letterSpacing: 0.5,
+    }}
+  />
+  ) : null}
+    {/*     {product.stock === 0 && (
+         
+        )} */}
         {/* WISHLIST */}
         <IconButton
           onClick={handleWishlist}

@@ -52,91 +52,53 @@ exports.getLuxuryStory = async (req, res) => {
   }
 };
 
-exports.updateLuxuryStory = async (req,res)=>{
-try{
+exports.updateLuxuryStory = async (req, res) => {
+  try {
+    let story = await LuxuryStory.findOne();
 
-let story = await LuxuryStory.findOne();
+    let imageUrl = story?.image || "";
 
+    // agar new image upload hui
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(
+        `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`,
+        {
+          folder: "veloura/luxury-story",
+        },
+      );
 
-let imageUrl = story?.image || "";
+      imageUrl = result.secure_url;
+    }
 
+    const updateData = {
+      ...req.body,
 
-// agar new image upload hui
-if(req.file){
+      image: imageUrl,
+    };
 
-const result =
-await cloudinary.uploader.upload(
-`data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`,
-{
-folder:"veloura/luxury-story"
-}
-);
+    if (!story) {
+      story = await LuxuryStory.create(updateData);
+    } else {
+      story = await LuxuryStory.findByIdAndUpdate(story._id, updateData, {
+        new: true,
+      });
+    }
 
+    res.json({
+      success: true,
 
-imageUrl = result.secure_url;
+      message: "Luxury Story Updated",
 
-}
+      data: story,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
 
-
-
-const updateData = {
-
-...req.body,
-
-image:imageUrl
-
+      message: err.message,
+    });
+  }
 };
-
-
-
-if(!story){
-
-story = await LuxuryStory.create(updateData);
-
-}
-else{
-
-
-story =
-await LuxuryStory.findByIdAndUpdate(
-story._id,
-updateData,
-{
-new:true
-}
-);
-
-
-}
-
-
-
-res.json({
-
-success:true,
-
-message:"Luxury Story Updated",
-
-data:story
-
-});
-
-
-}
-catch(err){
-
-res.status(500).json({
-
-success:false,
-
-message:err.message
-
-});
-
-}
-
-};
-
 
 exports.upload = async (req, res) => {
   try {
@@ -156,7 +118,7 @@ exports.upload = async (req, res) => {
           success: true,
           url: result.secure_url,
         });
-      }
+      },
     );
 
     result.end(req.file.buffer);
@@ -168,90 +130,57 @@ exports.upload = async (req, res) => {
   }
 };
 
-exports.deleteLuxuryStory = async(req,res)=>{
+exports.deleteLuxuryStory = async (req, res) => {
+  try {
+    const story = await LuxuryStory.findOne();
 
-try{
+    if (!story) {
+      return res.status(404).json({
+        success: false,
+        message: "Luxury Story not found",
+      });
+    }
 
-const story = await LuxuryStory.findOne();
+    await LuxuryStory.findByIdAndDelete(story._id);
 
-
-if(!story){
-
-return res.status(404).json({
-success:false,
-message:"Luxury Story not found"
-});
-
-}
-
-
-await LuxuryStory.findByIdAndDelete(story._id);
-
-
-res.json({
-success:true,
-message:"Luxury Story deleted successfully"
-});
-
-
-}
-catch(err){
-
-res.status(500).json({
-success:false,
-message:err.message
-});
-
-}
-
+    res.json({
+      success: true,
+      message: "Luxury Story deleted successfully",
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
 };
-exports.toggleLuxuryStoryStatus = async(req,res)=>{
+exports.toggleLuxuryStoryStatus = async (req, res) => {
+  try {
+    const story = await LuxuryStory.findOne();
 
-try{
+    if (!story) {
+      return res.status(404).json({
+        success: false,
+        message: "Luxury Story not found",
+      });
+    }
 
-const story = await LuxuryStory.findOne();
+    story.status = !story.status;
 
+    await story.save();
 
-if(!story){
+    res.json({
+      success: true,
 
-return res.status(404).json({
-success:false,
-message:"Luxury Story not found"
-});
+      message: "Status Updated",
 
-}
+      data: story,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
 
-
-story.status = !story.status;
-
-
-await story.save();
-
-
-
-res.json({
-
-success:true,
-
-message:"Status Updated",
-
-data:story
-
-});
-
-
-}
-catch(err){
-
-res.status(500).json({
-
-success:false,
-
-message:err.message
-
-});
-
-}
-
-
+      message: err.message,
+    });
+  }
 };

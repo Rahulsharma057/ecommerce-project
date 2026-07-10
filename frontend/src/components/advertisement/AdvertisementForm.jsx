@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState,useEffect } from "react";
 
 import {
   Box,
@@ -22,24 +22,32 @@ export default function AdvertisementForm({
   loading,
 }) {
   const [title, setTitle] = useState(initialData?.title || "");
-
   const [description, setDescription] = useState(
     initialData?.description || "",
   );
-
+  const [discount, setDiscount] = useState(initialData?.discount || "");
   const [buttonText, setButtonText] = useState(initialData?.buttonText || "");
-
   const [buttonLink, setButtonLink] = useState(initialData?.buttonLink || "");
-
   const [status, setStatus] = useState(initialData?.status ?? true);
-
   const [image, setImage] = useState(null);
+
+useEffect(() => {
+  if (!initialData) return;
+
+  setTitle(initialData.title || "");
+  setDiscount(initialData.discount || "");
+  setDescription(initialData.description || "");
+  setButtonText(initialData.buttonText || "");
+  setButtonLink(initialData.buttonLink || "");
+  setStatus(initialData.status ?? true);
+}, [initialData]);
 
   const submit = () => {
     const form = new FormData();
 
     form.append("title", title);
     form.append("description", description);
+    form.append("discount", discount);
     form.append("buttonText", buttonText);
     form.append("buttonLink", buttonLink);
     form.append("status", status);
@@ -65,7 +73,12 @@ export default function AdvertisementForm({
             onChange={(e) => setTitle(e.target.value)}
             fullWidth
           />
-
+          <TextField
+            label="Discount"
+            value={discount}
+            onChange={(e) => setDiscount(e.target.value)}
+            fullWidth
+          />
           <TextField
             label="Description"
             multiline

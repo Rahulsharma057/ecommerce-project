@@ -201,8 +201,12 @@ export default function ProductsPageContent() {
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
       const map = {};
+
       list.forEach((item) => {
-        map[item.productId._id] = item._id;
+        const productId = item?.productId?._id;
+        if (productId) {
+          map[productId] = item._id;
+        }
       });
 
       setWishlistMap(map);
@@ -346,79 +350,75 @@ export default function ProductsPageContent() {
         )}
       </Container>
 
-     <Stack
-  direction="row"
-  spacing={1}
-  justifyContent="center"
-  alignItems="center"
-  mt={4}
-  sx={{
-    flexWrap: "wrap",
-    gap: 1,
-  }}
->
-  {/* Prev */}
-  <Button
-    disabled={page === 1}
-    onClick={() => setPage((p) => p - 1)}
-    variant="outlined"
-    size="small"
-    sx={{
-      borderRadius: 1,
-      textTransform: "none",
-    }}
-  >
-    Prev
-  </Button>
-
-  {/* Pages (clean range UI) */}
-  {Array.from({ length: totalPages }, (_, i) => i + 1)
-    .filter((p) => {
-      return (
-        p === 1 ||
-        p === totalPages ||
-        Math.abs(p - page) <= 1
-      );
-    })
-    .map((pageNumber, idx, arr) => (
-      <>
-        {/* ellipsis */}
-        {idx > 0 && pageNumber - arr[idx - 1] > 1 && (
-          <span style={{ padding: "0 6px" }}>...</span>
-        )}
-
+      <Stack
+        direction="row"
+        spacing={1}
+        justifyContent="center"
+        alignItems="center"
+        mt={4}
+        sx={{
+          flexWrap: "wrap",
+          gap: 1,
+        }}
+      >
+        {/* Prev */}
         <Button
-          key={pageNumber}
-          onClick={() => setPage(pageNumber)}
-          variant={page === pageNumber ? "contained" : "outlined"}
+          disabled={page === 1}
+          onClick={() => setPage((p) => p - 1)}
+          variant="outlined"
           size="small"
           sx={{
-            bgcolor:"black",
-            minWidth: 36,
-            borderRadius: "10px",
-            fontWeight: 600,
+            borderRadius: 1,
             textTransform: "none",
           }}
         >
-          {pageNumber}
+          Prev
         </Button>
-      </>
-    ))}
 
-  {/* Next */}
-  <Button
-    disabled={page === totalPages}
-    onClick={() => setPage((p) => p + 1)}
-    variant="outlined"
-    size="small"
-    sx={{
-      borderRadius: 1,
-      textTransform: "none",
-    }}
-  >
-    Next
-  </Button>
-</Stack>
+        {/* Pages (clean range UI) */}
+        {Array.from({ length: totalPages }, (_, i) => i + 1)
+          .filter((p) => {
+            return p === 1 || p === totalPages || Math.abs(p - page) <= 1;
+          })
+          .map((pageNumber, idx, arr) => (
+            <>
+              {/* ellipsis */}
+              {idx > 0 && pageNumber - arr[idx - 1] > 1 && (
+                <span style={{ padding: "0 6px" }}>...</span>
+              )}
+
+              <Button
+                key={pageNumber}
+                onClick={() => setPage(pageNumber)}
+                variant={page === pageNumber ? "contained" : "outlined"}
+                size="small"
+                sx={{
+                  bgcolor: "black",
+                  minWidth: 36,
+                  borderRadius: "10px",
+                  fontWeight: 600,
+                  textTransform: "none",
+                }}
+              >
+                {pageNumber}
+              </Button>
+            </>
+          ))}
+
+        {/* Next */}
+        <Button
+          disabled={page === totalPages}
+          onClick={() => setPage((p) => p + 1)}
+          variant="outlined"
+          size="small"
+          sx={{
+            borderRadius: 1,
+            textTransform: "none",
+          }}
+        >
+          Next
+        </Button>
+      </Stack>
       {/* Mobile filter drawer */}
       <Drawer
         anchor="bottom"
