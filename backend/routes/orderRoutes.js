@@ -19,42 +19,20 @@ const {
 } = require("../controllers/orderController");
 
 // ================= USER =================
-
 router.post("/place", authMiddleware, placeOrder);
 router.get("/my", authMiddleware, getMyOrders);
 router.get("/:id", authMiddleware, getOrder);
 router.put("/cancel/:id", authMiddleware, cancelOrder);
-router.put(
-  "/return/:id",
-  authMiddleware,
-  uploadImage.array("images", 5),
-  requestReturn,
-);
+router.put("/return/:id", authMiddleware, uploadImage.array("images", 5), requestReturn);
 
 // ================= ADMIN =================
 router.get("/admin/all", authMiddleware, adminMiddleware, getAllOrdersAdmin);
-
 router.get("/admin/:id", authMiddleware, adminMiddleware, getSingleOrderAdmin);
-
 router.put("/admin/:id", authMiddleware, adminMiddleware, updateOrderStatus);
-router.put(
-  "/admin/return/:id",
-  authMiddleware,
-  adminMiddleware,
-  updateReturnStatus,
-);
 
-router.put(
-  "/admin/return/pickup/:id",
-  authMiddleware,
-  adminMiddleware,
-  updatePickupStatus,
-);
+// FIX: returnId added — each return batch is updated independently now
+router.put("/admin/return/:orderId/:returnId", authMiddleware, adminMiddleware, updateReturnStatus);
+router.put("/admin/return/pickup/:orderId/:returnId", authMiddleware, adminMiddleware, updatePickupStatus);
+router.put("/admin/refund/:orderId/:returnId", authMiddleware, adminMiddleware, updateRefundStatus);
 
-router.put(
-  "/admin/refund/:id",
-  authMiddleware,
-  adminMiddleware,
-  updateRefundStatus,
-);
 module.exports = router;

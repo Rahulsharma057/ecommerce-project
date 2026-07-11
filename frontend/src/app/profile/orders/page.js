@@ -1,38 +1,32 @@
 "use client";
-import { toast } from "react-toastify";
 import {
   Container,
   Typography,
   Card,
   CardContent,
-  Button,
   Stack,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Paper,
   Divider,
-  Chip,
   Box,
   Tabs,
   Tab,
-  Avatar,InputAdornment, IconButton
+  Avatar,
+  TextField,
+  InputAdornment,
+  IconButton,
+  Button,
+  Paper,
 } from "@mui/material";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import CancelIcon from "@mui/icons-material/Cancel";
-import UndoIcon from "@mui/icons-material/Undo";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import InboxOutlinedIcon from "@mui/icons-material/InboxOutlined";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
+import UndoIcon from "@mui/icons-material/Undo";
 import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import DownloadInvoiceButton from "@/components/DownloadInvoiceButton";
 import { API_URL } from "@/lib/api";
 
 const STATUS_STYLES = {
@@ -44,14 +38,6 @@ const STATUS_STYLES = {
 };
 
 export default function OrdersPage() {
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("");
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [returnOpen, setReturnOpen] = useState(false);
-  const [returnReason, setReturnReason] = useState("");
-  const [selectedReturnOrder, setSelectedReturnOrder] = useState(null);
-  const [returnImages, setReturnImages] = useState([]);
-  const [returnDescription, setReturnDescription] = useState("");
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState([]);
   const [tab, setTab] = useState(0); // 0 = Ongoing, 1 = Delivered, 2 = Returned, 3 = Cancelled
@@ -73,21 +59,6 @@ export default function OrdersPage() {
     const data = await res.json();
 
     setOrders(data);
-  };
-
-  const cancelOrder = async (id) => {
-    const token = localStorage.getItem("token");
-
-    await fetch(`${API_URL}/orders/admin/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ status: "Cancelled" }),
-    });
-
-    fetchOrders();
   };
 
   const TAB_LABELS = ["Ongoing", "Delivered", "Returned", "Cancelled"];
@@ -113,167 +84,146 @@ export default function OrdersPage() {
   );
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 1, sm: 3 ,md:3}  }}>
-   <Box sx={{ mb: { xs: 1.5, sm: 2 } }}>
-  <Stack direction="row" alignItems="center" gap={{ xs: 1, sm: 1.5 }}>
-    <Button
-      onClick={() => router.back()}
-      sx={{
-        minWidth: { xs: 34, sm: 40 },
-        width: { xs: 34, sm: 40 },
-        height: { xs: 34, sm: 40 },
-        borderRadius: 2,
-        color: "#18181b",
-        border: "1px solid #e4e4e7",
-        flexShrink: 0,
-        "&:hover": { borderColor: "#18181b", bgcolor: "#f4f4f5" },
-      }}
-    >
-      <ArrowBackIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
-    </Button>
-
-    <Box sx={{ minWidth: 0 }}>
-      <Typography
-        sx={{
-          fontSize: { xs: 17, sm: 22 },
-          fontWeight: 700,
-          color: "#18181b",
-          lineHeight: 1.2,
-        }}
-      >
-        My Orders
-      </Typography>
-      <Typography
-        sx={{
-          fontSize: { xs: 12, sm: 13.5 },
-          color: "#71717a",
-          mt: 0.3,
-          display: { xs: "none", sm: "block" }, // hide subtitle on very small screens to save space
-        }}
-      >
-        Track, manage and view all your orders in one place
-      </Typography>
-    </Box>
-  </Stack>
-</Box>
-
-{/* SEARCH */}
-
-
-<Paper
-  variant="outlined"
-  sx={{
-    p: { xs: 1, sm: 1.5 },
-    mb: 1,
-    borderRadius: 3,
-    borderColor: "#e4e4e7",
-  }}
->
-  <TextField
-    fullWidth
-    size="small"
-    placeholder="Search Order ID..."
-    value={search}
-    onChange={(e) => setSearch(e.target.value)}
-    InputProps={{
-      startAdornment: (
-        <InputAdornment position="start">
-          <SearchRoundedIcon
+    <Container maxWidth="lg" sx={{ py: { xs: 1, sm: 3, md: 3 } }}>
+      {/* HEADER */}
+      <Box sx={{ mb: { xs: 1.5, sm: 2 } }}>
+        <Stack direction="row" alignItems="center" gap={{ xs: 1, sm: 1.5 }}>
+          <Button
+            onClick={() => router.back()}
             sx={{
-              color: "#71717a",
-              fontSize: { xs: 20, sm: 22 },
-            }}
-          />
-        </InputAdornment>
-      ),
-
-      endAdornment: search && (
-        <InputAdornment position="end">
-          <IconButton
-            size="small"
-            onClick={() => setSearch("")}
-            sx={{
-              color: "#71717a",
+              minWidth: { xs: 34, sm: 40 },
+              width: { xs: 34, sm: 40 },
+              height: { xs: 34, sm: 40 },
+              borderRadius: 2,
+              color: "#18181b",
+              border: "1px solid #e4e4e7",
+              flexShrink: 0,
+              "&:hover": { borderColor: "#18181b", bgcolor: "#f4f4f5" },
             }}
           >
-            <CloseRoundedIcon fontSize="small" />
-          </IconButton>
-        </InputAdornment>
-      ),
-    }}
-    sx={{
-      "& .MuiOutlinedInput-root": {
-        borderRadius: "14px",
-        bgcolor: "#fff",
-        fontSize: {
-          xs: "14px",
-          sm: "15px",
-        },
-        "& fieldset": {
+            <ArrowBackIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+          </Button>
+
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontSize: { xs: 17, sm: 22 },
+                fontWeight: 700,
+                color: "#18181b",
+                lineHeight: 1.2,
+              }}
+            >
+              My Orders
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: { xs: 12, sm: 13.5 },
+                color: "#71717a",
+                mt: 0.3,
+                display: { xs: "none", sm: "block" },
+              }}
+            >
+              Track, manage and view all your orders in one place
+            </Typography>
+          </Box>
+        </Stack>
+      </Box>
+
+      {/* SEARCH */}
+      <Paper
+        variant="outlined"
+        sx={{
+          p: { xs: 1, sm: 1.5 },
+          mb: 1,
+          borderRadius: 3,
           borderColor: "#e4e4e7",
-        },
-        "&:hover fieldset": {
-          borderColor: "#a1a1aa",
-        },
-        "&.Mui-focused fieldset": {
-          borderColor: "#111827",
-          borderWidth: "2px",
-        },
-      },
+        }}
+      >
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Search Order ID..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchRoundedIcon
+                  sx={{ color: "#71717a", fontSize: { xs: 20, sm: 22 } }}
+                />
+              </InputAdornment>
+            ),
+            endAdornment: search && (
+              <InputAdornment position="end">
+                <IconButton
+                  size="small"
+                  onClick={() => setSearch("")}
+                  sx={{ color: "#71717a" }}
+                >
+                  <CloseRoundedIcon fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+          sx={{
+            "& .MuiOutlinedInput-root": {
+              borderRadius: "14px",
+              bgcolor: "#fff",
+              fontSize: { xs: "14px", sm: "15px" },
+              "& fieldset": { borderColor: "#e4e4e7" },
+              "&:hover fieldset": { borderColor: "#a1a1aa" },
+              "&.Mui-focused fieldset": {
+                borderColor: "#111827",
+                borderWidth: "2px",
+              },
+            },
+            "& input": { py: { xs: 1.2, sm: 1.4 } },
+          }}
+        />
+      </Paper>
 
-      "& input": {
-        py: {
-          xs: 1.2,
-          sm: 1.4,
-        },
-      },
-    }}
-  />
-</Paper>
+      {/* TABS */}
+      <Paper
+        variant="outlined"
+        sx={{
+          borderRadius: 2,
+          borderColor: "#e4e4e7",
+          mb: { xs: 2, sm: 3 },
+          overflow: "hidden",
+        }}
+      >
+        <Tabs
+          value={tab}
+          onChange={(e, v) => setTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          TabIndicatorProps={{ sx: { bgcolor: "#18181b", height: 2.5 } }}
+          sx={{
+            minHeight: { xs: 38, sm: 48 },
+            "& .MuiTab-root": {
+              textTransform: "none",
+              fontWeight: 600,
+              fontSize: { xs: 11.5, sm: 13.5 },
+              color: "#71717a",
+              minHeight: { xs: 38, sm: 48 },
+              minWidth: { xs: "auto", sm: 90 },
+              px: { xs: 1.1, sm: 2 },
+              whiteSpace: "nowrap",
+            },
+            "& .Mui-selected": { color: "#18181b !important" },
+            "& .MuiTabs-scrollButtons": {
+              width: { xs: 22, sm: 40 },
+              "&.Mui-disabled": { opacity: 0.3 },
+            },
+          }}
+        >
+          {TAB_LABELS.map((label, i) => (
+            <Tab key={label} label={`${label} (${tabCounts[i]})`} />
+          ))}
+        </Tabs>
+      </Paper>
 
-{/* TABS */}
-<Paper
-  variant="outlined"
-  sx={{
-    borderRadius: 2,
-    borderColor: "#e4e4e7",
-    mb: { xs: 2, sm: 3 },
-    overflow: "hidden",
-  }}
->
-  <Tabs
-    value={tab}
-    onChange={(e, v) => setTab(v)}
-    variant="scrollable"
-    scrollButtons="auto"
-    allowScrollButtonsMobile
-    TabIndicatorProps={{ sx: { bgcolor: "#18181b", height: 2.5 } }}
-    sx={{
-      minHeight: { xs: 38, sm: 48 },
-      "& .MuiTab-root": {
-        textTransform: "none",
-        fontWeight: 600,
-        fontSize: { xs: 11.5, sm: 13.5 },
-        color: "#71717a",
-        minHeight: { xs: 38, sm: 48 },
-        minWidth: { xs: "auto", sm: 90 },
-        px: { xs: 1.1, sm: 2 },
-        whiteSpace: "nowrap",
-      },
-      "& .Mui-selected": {
-        color: "#18181b !important",
-      },
-      "& .MuiTabs-scrollButtons": {
-        width: { xs: 22, sm: 40 },
-        "&.Mui-disabled": { opacity: 0.3 },
-      },
-    }}
-  >
-    {TAB_LABELS.map((label, i) => (
-      <Tab key={label} label={`${label} (${tabCounts[i]})`} />
-    ))}
-  </Tabs>
-</Paper>
       {/* ORDER LIST */}
       {tabOrders.length === 0 ? (
         <Card
@@ -304,11 +254,7 @@ export default function OrdersPage() {
             >
               <InboxOutlinedIcon sx={{ fontSize: 26 }} />
             </Box>
-            <Typography
-              fontSize={17}
-              fontWeight={700}
-              sx={{ color: "#18181b" }}
-            >
+            <Typography fontSize={17} fontWeight={700} sx={{ color: "#18181b" }}>
               No {TAB_LABELS[tab].toLowerCase()} orders
             </Typography>
             <Typography sx={{ color: "#71717a", fontSize: 14, mt: 0.5 }}>
@@ -325,18 +271,27 @@ export default function OrdersPage() {
               bg: "#f4f4f5",
               text: "#52525b",
             };
-            const visibleItems = order.items?.slice(0, 2) || [];
-            const extraCount = (order.items?.length || 0) - visibleItems.length;
+            const firstItem = order.items?.[0];
+            const itemCount = order.items?.length || 0;
 
             return (
               <Card
                 key={order._id}
                 variant="outlined"
+                component={Link}
+                href={`/profile/orders/${order._id}`}
                 sx={{
                   borderRadius: 2.5,
                   borderColor: "#e4e4e7",
                   boxShadow: "none",
-                  overflow: "visible",
+                  overflow: "hidden",
+                  display: "block",
+                  textDecoration: "none",
+                  transition: "border-color .15s ease, background .15s ease",
+                  "&:hover": {
+                    borderColor: "#a1a1aa",
+                    bgcolor: "#fafafa",
+                  },
                 }}
               >
                 {/* RETURN BADGE */}
@@ -350,7 +305,6 @@ export default function OrdersPage() {
                       py: 0.75,
                       bgcolor: "#fff7ed",
                       borderBottom: "1px solid #fed7aa",
-                      borderRadius: "10px 10px 0 0",
                     }}
                   >
                     <UndoIcon sx={{ fontSize: 15, color: "#c2410c" }} />
@@ -373,7 +327,6 @@ export default function OrdersPage() {
                       py: 0.75,
                       bgcolor: "#eef2ff",
                       borderBottom: "1px solid #e0e7ff",
-                      borderRadius: "10px 10px 0 0",
                     }}
                   >
                     <LocalShippingOutlinedIcon
@@ -387,481 +340,190 @@ export default function OrdersPage() {
                   </Box>
                 )}
 
-                <CardContent sx={{ p: 2.5, "&:last-child": { pb: 2.5 } }}>
-                  {/* TOP ROW: Order ID + Status */}
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="flex-start"
-                  >
-                    <Box>
-                      <Typography
-                        sx={{ fontWeight: 700, fontSize: 15, color: "#18181b" }}
-                      >
-                        Order #{order._id.slice(-6).toUpperCase()}
-                      </Typography>
-                      <Typography
-                        sx={{ fontSize: 12.5, color: "#71717a", mt: 0.3 }}
-                      >
-                        {new Date(order.createdAt).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </Typography>
-                    </Box>
-
-                    <Chip
-                      label={order.status}
-                      size="small"
+                {/* TOP STRIP: status dot + date */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    px: { xs: 1.75, sm: 2 },
+                    py: { xs: 1, sm: 1.1 },
+                    bgcolor: "#fafafa",
+                  }}
+                >
+                  <Stack direction="row" alignItems="center" spacing={0.75}>
+                    <Box
                       sx={{
-                        fontWeight: 600,
-                        fontSize: 12,
-                        bgcolor: statusStyle.bg,
-                        color: statusStyle.text,
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        bgcolor: statusStyle.text,
+                        flexShrink: 0,
                       }}
                     />
+                    <Typography
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: { xs: 12, sm: 13 },
+                        color: statusStyle.text,
+                      }}
+                    >
+                      {order.status}
+                    </Typography>
                   </Stack>
 
-                  <Divider sx={{ my: 1.75, borderColor: "#f4f4f5" }} />
+                  <Typography
+                    sx={{ fontSize: { xs: 11, sm: 12 }, color: "#71717a" }}
+                  >
+                    {new Date(order.createdAt).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </Typography>
+                </Box>
 
-                  {/* ITEMS WITH IMAGE */}
-                  <Stack spacing={1.25}>
-                    {visibleItems.map((item, i) => (
-                      <Stack
-                        key={i}
-                        direction="row"
-                        alignItems="center"
-                        spacing={1.5}
+                <Divider sx={{ borderColor: "#e4e4e7" }} />
+
+                {/* MAIN ROW */}
+                <Box
+                  sx={{
+                    p: { xs: 1.75, sm: 2 },
+                    display: "flex",
+                    alignItems: "center",
+                    gap: { xs: 1.5, sm: 2 },
+                  }}
+                >
+                  {/* THUMBNAIL */}
+                  <Box sx={{ position: "relative", flexShrink: 0 }}>
+                    <Avatar
+                      src={firstItem?.image}
+                      variant="rounded"
+                      sx={{
+                        width: { xs: 50, sm: 58 },
+                        height: { xs: 50, sm: 58 },
+                        borderRadius: 2,
+                        bgcolor: "#f4f4f5",
+                        border: "1px solid #e4e4e7",
+                      }}
+                    >
+                      <ImageOutlinedIcon
+                        sx={{ fontSize: 20, color: "#a1a1aa" }}
+                      />
+                    </Avatar>
+
+                    {itemCount > 1 && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          bottom: -6,
+                          right: -6,
+                          bgcolor: "#18181b",
+                          color: "#fff",
+                          borderRadius: "50%",
+                          width: 22,
+                          height: 22,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          border: "2px solid #fff",
+                        }}
                       >
-                        <Avatar
-                          src={item.image}
-                          variant="rounded"
+                        +{itemCount - 1}
+                      </Box>
+                    )}
+                  </Box>
+
+                  {/* NAME / ORDER ID / META */}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography
+                      noWrap
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: { xs: 13.5, sm: 14.5 },
+                        color: "#18181b",
+                      }}
+                    >
+                      {firstItem?.name || "Order"}
+                      {itemCount > 1 && (
+                        <Typography
+                          component="span"
                           sx={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 2,
-                            bgcolor: "#f4f4f5",
-                            border: "1px solid #e4e4e7",
+                            fontWeight: 500,
+                            fontSize: { xs: 11.5, sm: 12.5 },
+                            color: "#71717a",
                           }}
                         >
-                          <ImageOutlinedIcon
-                            sx={{ fontSize: 18, color: "#a1a1aa" }}
-                          />
-                        </Avatar>
-
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography
-                            noWrap
-                            sx={{
-                              fontSize: 13.5,
-                              color: "#27272a",
-                              fontWeight: 500,
-                            }}
-                          >
-                            {item.name}
-                          </Typography>
-                          <Typography sx={{ fontSize: 12, color: "#a1a1aa" }}>
-                            Qty: {item.quantity}
-                          </Typography>
-                        </Box>
-                      </Stack>
-                    ))}
-
-                    {extraCount > 0 && (
-                      <Typography
-                        sx={{ fontSize: 12.5, color: "#a1a1aa", pl: "58px" }}
-                      >
-                        +{extraCount} more item{extraCount > 1 ? "s" : ""}
-                      </Typography>
-                    )}
-                  </Stack>
-
-                  {/* TOTAL */}
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    mt={2}
-                  >
-                    <Typography sx={{ fontSize: 13.5, color: "#71717a" }}>
-                      Total
+                          {" "}
+                          +{itemCount - 1} more
+                        </Typography>
+                      )}
                     </Typography>
                     <Typography
-                      sx={{ fontSize: 16, fontWeight: 700, color: "#18181b" }}
+                      sx={{
+                        fontSize: { xs: 11.5, sm: 12.5 },
+                        color: "#71717a",
+                        mt: 0.3,
+                      }}
+                    >
+                      Order #{order._id.slice(-6).toUpperCase()}
+                    </Typography>
+                    <Typography
+                      noWrap
+                      sx={{
+                        fontSize: { xs: 11, sm: 12 },
+                        color: "#a1a1aa",
+                        mt: 0.3,
+                      }}
+                    >
+                      {itemCount} Item{itemCount > 1 ? "s" : ""}
+                      {order.paymentMethod && ` • ${order.paymentMethod}`}
+                    </Typography>
+                  </Box>
+
+                  {/* PRICE + VIEW DETAILS */}
+                  <Stack
+                    alignItems="flex-end"
+                    justifyContent="space-between"
+                    sx={{ alignSelf: "stretch", flexShrink: 0, gap: 0.75 }}
+                  >
+                    <Typography
+                      sx={{
+                        fontSize: { xs: 14, sm: 15.5 },
+                        fontWeight: 700,
+                        color: "#18181b",
+                        whiteSpace: "nowrap",
+                      }}
                     >
                       ₹{(order.totalAmount || 0).toLocaleString()}
                     </Typography>
+
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={0.3}
+                      sx={{ color: "#27272a" }}
+                    >
+                      <Typography
+                        sx={{
+                          fontSize: { xs: 11.5, sm: 12.5 },
+                          fontWeight: 600,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        View Details
+                      </Typography>
+                      <ArrowForwardRoundedIcon sx={{ fontSize: 15 }} />
+                    </Stack>
                   </Stack>
-
-                  <Divider sx={{ my: 1.75, borderColor: "#f4f4f5" }} />
-
-                  {/* ACTIONS */}
-                  {/* ACTIONS */}
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    flexWrap="wrap"
-                    sx={{
-                      gap: 1,
-                      "& .MuiButton-root": {
-                        flex: { xs: "1 1 calc(50% - 4px)", sm: "0 0 auto" },
-                      },
-                    }}
-                  >
-                    <Button
-                      component={Link}
-                      href={`/profile/orders/${order._id}`}
-                      size="small"
-                      variant="outlined"
-                      startIcon={<VisibilityIcon sx={{ fontSize: 16 }} />}
-                      sx={{
-                        borderRadius: 2,
-                        textTransform: "none",
-                        fontWeight: 500,
-                        fontSize: { xs: 12.5, sm: 13 },
-                        borderColor: "#e4e4e7",
-                        color: "#27272a",
-                        "&:hover": {
-                          borderColor: "#18181b",
-                          bgcolor: "#f4f4f5",
-                        },
-                      }}
-                    >
-                      View Details
-                    </Button>
-
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      disabled={order.status !== "Pending"}
-                      startIcon={<CancelIcon sx={{ fontSize: 16 }} />}
-                      sx={{
-                        borderRadius: 2,
-                        textTransform: "none",
-                        fontWeight: 500,
-                        fontSize: { xs: 12.5, sm: 13 },
-                        borderColor: "#fecaca",
-                        color: "#dc2626",
-                        "&:hover": {
-                          borderColor: "#dc2626",
-                          bgcolor: "#fef2f2",
-                        },
-                      }}
-                      onClick={() => {
-                        setSelectedOrder(order);
-                        setOpen(true);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      disabled={order.status !== "Delivered"}
-                      startIcon={<UndoIcon sx={{ fontSize: 16 }} />}
-                      sx={{
-                        borderRadius: 2,
-                        textTransform: "none",
-                        fontWeight: 500,
-                        fontSize: { xs: 12.5, sm: 13 },
-                        borderColor: "#fde68a",
-                        color: "#d97706",
-                        "&:hover": {
-                          borderColor: "#d97706",
-                          bgcolor: "#fffbeb",
-                        },
-                      }}
-                      onClick={() => {
-                        setSelectedReturnOrder(order);
-                        setReturnOpen(true);
-                      }}
-                    >
-                      Return
-                    </Button>
-                  </Stack>
-                </CardContent>
+                </Box>
               </Card>
             );
           })}
         </Stack>
       )}
-
-      {/* CANCEL DIALOG */}
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            p: 1,
-            minWidth: { xs: "90%", sm: 420 },
-          },
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 700, color: "#18181b" }}>
-          Cancel Order
-        </DialogTitle>
-        <Divider sx={{ my: 0, borderColor: "#f4f4f5" }} />
-
-        <DialogContent>
-          <Typography variant="body2" sx={{ color: "#71717a", mb: 2 }}>
-            Please tell us the reason for cancelling this order.
-          </Typography>
-
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            placeholder="Write your reason..."
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            sx={{
-              "& .MuiOutlinedInput-root": {
-                borderRadius: 2,
-                "& fieldset": { borderColor: "#e4e4e7" },
-                "&.Mui-focused fieldset": { borderColor: "#18181b" },
-              },
-            }}
-          />
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            onClick={() => setOpen(false)}
-            variant="outlined"
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              borderColor: "#e4e4e7",
-              color: "#27272a",
-            }}
-          >
-            Close
-          </Button>
-
-          <Button
-            variant="contained"
-            disabled={!reason}
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              bgcolor: "#dc2626",
-              boxShadow: "none",
-              "&:hover": { bgcolor: "#b91c1c", boxShadow: "none" },
-            }}
-            onClick={async () => {
-              try {
-                const res = await fetch(
-                  `${API_URL}/orders/cancel/${selectedOrder._id}`,
-                  {
-                    method: "PUT",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${localStorage.getItem("token")}`,
-                    },
-                    body: JSON.stringify({ reason }),
-                  },
-                );
-
-                const data = await res.json();
-
-                if (res.ok) {
-                  toast.success("Order cancelled successfully");
-
-                  setOpen(false);
-                  setReason("");
-                  setSelectedOrder(null);
-
-                  fetchOrders();
-                } else {
-                  toast.error(data.message || "Failed to cancel order");
-                }
-              } catch (err) {
-                toast.error("Something went wrong");
-              }
-            }}
-          >
-            Confirm Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* RETURN DIALOG */}
-      <Dialog
-        open={returnOpen}
-        onClose={() => setReturnOpen(false)}
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            p: 1,
-            minWidth: { xs: "90%", sm: 420 },
-          },
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 700, color: "#18181b" }}>
-          Return Order
-        </DialogTitle>
-
-        <DialogContent>
-          <Typography variant="body2" sx={{ color: "#71717a", mb: 2 }}>
-            Please mention the reason for returning this order.
-          </Typography>
-
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            label="Return Description"
-            placeholder="Describe issue with product..."
-            value={returnDescription}
-            onChange={(e) => setReturnDescription(e.target.value)}
-            sx={{
-              "& .MuiOutlinedInput-root": {
-                borderRadius: 2,
-                "& fieldset": { borderColor: "#e4e4e7" },
-                "&.Mui-focused fieldset": { borderColor: "#18181b" },
-              },
-            }}
-          />
-
-          <Button
-            variant="outlined"
-            component="label"
-            sx={{
-              mt: 2,
-              borderRadius: 2,
-              textTransform: "none",
-              borderColor: "#e4e4e7",
-              color: "#27272a",
-              "&:hover": { borderColor: "#18181b", bgcolor: "#f4f4f5" },
-            }}
-          >
-            Add Return Images
-            <input
-              hidden
-              multiple
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const files = Array.from(e.target.files);
-
-                const invalid = files.find(
-                  (file) => file.size > 5 * 1024 * 1024,
-                );
-
-                if (invalid) {
-                  toast.error("Each image must be less than 5 MB");
-                  return;
-                }
-
-                setReturnImages(files);
-              }}
-            />
-          </Button>
-
-          {returnImages.length > 0 && (
-            <Box
-              sx={{
-                display: "flex",
-                gap: 1,
-                mt: 2,
-                flexWrap: "wrap",
-              }}
-            >
-              {returnImages.map((img, index) => (
-                <Box
-                  key={index}
-                  component="img"
-                  src={URL.createObjectURL(img)}
-                  sx={{
-                    width: 70,
-                    height: 70,
-                    borderRadius: 2,
-                    objectFit: "cover",
-                    border: "1px solid #e4e4e7",
-                  }}
-                />
-              ))}
-            </Box>
-          )}
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            onClick={() => {
-              setReturnOpen(false);
-              setReturnDescription("");
-              setReturnImages([]);
-            }}
-            variant="outlined"
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              borderColor: "#e4e4e7",
-              color: "#27272a",
-            }}
-          >
-            Close
-          </Button>
-
-          <Button
-            variant="contained"
-            disabled={!returnDescription}
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              bgcolor: "#d97706",
-              boxShadow: "none",
-              "&:hover": { bgcolor: "#b45309", boxShadow: "none" },
-            }}
-            onClick={async () => {
-              try {
-                const formData = new FormData();
-
-                formData.append("description", returnDescription);
-
-                returnImages.forEach((img) => {
-                  formData.append("images", img);
-                });
-
-                const res = await fetch(
-                  `${API_URL}/orders/return/${selectedReturnOrder._id}`,
-                  {
-                    method: "PUT",
-                    headers: {
-                      Authorization: `Bearer ${localStorage.getItem("token")}`,
-                    },
-                    body: formData,
-                  },
-                );
-
-                const data = await res.json();
-
-                if (res.ok) {
-                  toast.success("Return request submitted successfully");
-
-                  setReturnOpen(false);
-                  setReturnDescription("");
-                  setReturnImages([]);
-                  setSelectedReturnOrder(null);
-
-                  fetchOrders();
-                } else {
-                  toast.error(
-                    data.message || "Failed to submit return request",
-                  );
-                }
-              } catch (err) {
-                toast.error("Something went wrong");
-              }
-            }}
-          >
-            Confirm Return
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Container>
   );
 }

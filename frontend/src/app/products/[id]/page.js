@@ -52,7 +52,7 @@ export default function ProductDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   const dispatch = useDispatch();
-
+const [buyNowLoading, setBuyNowLoading] = useState(false);
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingReviewId, setEditingReviewId] = useState(null);
@@ -378,32 +378,60 @@ export default function ProductDetailsPage() {
       setSubmittingReview(false);
     }
   };
+const handleBuyNow = async () => {
+  if (!product) return;
 
-  const handleBuyNow = () => {
-    if (!product) return;
+  const token = localStorage.getItem("token");
 
-    if (product.stock === 0) {
-      alert("Out of stock");
+  if (!token) {
+    toast.error("Please login first");
+    router.push("/login");
+    return;
+  }
+
+  setBuyNowLoading(true);
+
+  try {
+    // Optional: Latest stock check from backend
+    const res = await fetch(`${API_URL}/products/${product._id}`);
+    const latestProduct = await res.json();
+
+    if (!res.ok) {
+      toast.error("Unable to verify product.");
       return;
     }
 
-    if (quantity > product.stock) {
-      alert(`Only ${product.stock} items available`);
+    if (latestProduct.stock === 0) {
+      toast.warning("Product is out of stock");
+      return;
+    }
+
+    if (quantity > latestProduct.stock) {
+      toast.info(
+        `Only ${latestProduct.stock} item${latestProduct.stock > 1 ? "s" : ""} available.`
+      );
       return;
     }
 
     const safeProduct = {
-      productId: product._id,
-      name: product.name || "Product",
-      image: product.images?.[0] || "",
-      price: product.price || 0,
-      quantity: quantity || 1,
-      stock: product.stock,
+      productId: latestProduct._id,
+      name: latestProduct.name || "Product",
+      image: latestProduct.images?.[0] || "",
+      price: latestProduct.price || 0,
+      quantity,
+      stock: latestProduct.stock,
     };
 
+    localStorage.removeItem("buyNow");
     localStorage.setItem("buyNow", JSON.stringify([safeProduct]));
+
     router.push("/checkout");
-  };
+  } catch (error) {
+    toast.error("Something went wrong. Please try again.");
+  } finally {
+    setBuyNowLoading(false);
+  }
+};
 
   /* ================= LOADING STATE ================= */
   if (loading) {
@@ -511,37 +539,37 @@ export default function ProductDetailsPage() {
                 )}
               </IconButton>
 
-         {product.stock <= 0 ? (
-  <Chip
-    label="OUT OF STOCK"
-    size="small"
-    sx={{
-      position: "absolute",
-      top: 14,
-      left: 14,
-      bgcolor: "#111",
-      color: "#fff",
-      fontWeight: 700,
-      fontSize: 11,
-      letterSpacing: 0.5,
-    }}
-  />
-) : product.isSale ? (
-  <Chip
-    label="SALE"
-    size="small"
-    sx={{
-      position: "absolute",
-      top: 14,
-      left: 14,
-      bgcolor: "#ef4444",
-      color: "#fff",
-      fontWeight: 700,
-      fontSize: 11,
-      letterSpacing: 0.5,
-    }}
-  />
-) : null}
+              {product.stock <= 0 ? (
+                <Chip
+                  label="OUT OF STOCK"
+                  size="small"
+                  sx={{
+                    position: "absolute",
+                    top: 14,
+                    left: 14,
+                    bgcolor: "#111",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                  }}
+                />
+              ) : product.isSale ? (
+                <Chip
+                  label="SALE"
+                  size="small"
+                  sx={{
+                    position: "absolute",
+                    top: 14,
+                    left: 14,
+                    bgcolor: "#ef4444",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                  }}
+                />
+              ) : null}
             </Box>
 
             {product.images?.length > 1 && (
@@ -720,21 +748,21 @@ export default function ProductDetailsPage() {
 
               <IconButton
                 onClick={() => {
-    if (product.stock === 0) {
-      toast.warning("This product is currently out of stock.");
-      return;
-    }
+                  if (product.stock === 0) {
+                    toast.warning("This product is currently out of stock.");
+                    return;
+                  }
 
-    if (quantity >= product.stock) {
-      toast.info(
-        `Only ${product.stock} item${product.stock > 1 ? "s" : ""} available in stock.`
-      );
-      return;
-    }
+                  if (quantity >= product.stock) {
+                    toast.info(
+                      `Only ${product.stock} item${product.stock > 1 ? "s" : ""} available in stock.`,
+                    );
+                    return;
+                  }
 
-    setQuantity((prev) => prev + 1);
-  }}
-              //  disabled={quantity >= product.stock}
+                  setQuantity((prev) => prev + 1);
+                }}
+                //  disabled={quantity >= product.stock}
                 size="small"
                 sx={{ borderRadius: 0, px: 1.3 }}
               >
@@ -762,10 +790,10 @@ export default function ProductDetailsPage() {
               onClick={handleAddToCart}
               disabled={product.stock === 0}
             >
-              {product.stock === 0 ? "Out of Stock" : "Add To Cart"}
+            Add To Cart  {/* {product.stock === 0 ? "Out of Stock" : "Add To Cart"} */}
             </LoadingButton>
 
-            <Button
+          <LoadingButton
               variant="outlined"
               size="large"
               sx={{
@@ -782,12 +810,12 @@ export default function ProductDetailsPage() {
                   borderColor: "#111",
                   bgcolor: "#f8fafc",
                 },
-              }}
+              }}loading={buyNowLoading}
               onClick={handleBuyNow}
               disabled={product.stock === 0}
             >
-              Buy Now
-            </Button>
+             {product.stock === 0 ? "Out of Stock" : "Buy Now"}
+        </LoadingButton>
           </Stack>
 
           {/* ================= TRUST BADGES ================= */}
