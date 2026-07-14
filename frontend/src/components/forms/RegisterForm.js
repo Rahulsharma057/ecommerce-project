@@ -21,7 +21,7 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
 import PhoneAndroidOutlinedIcon from "@mui/icons-material/PhoneAndroidOutlined";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-
+import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
 import { API_URL } from "@/lib/api";
 
@@ -39,15 +39,66 @@ export default function RegisterForm() {
   const [openOtp, setOpenOtp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
+  const [errors, setErrors] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    otp: "",
+  });
+
+  const validate = () => {
+    const newErrors = {};
+
+    // Name
+    if (!form.name.trim()) {
+      newErrors.name = "Full name is required";
+    } else if (form.name.trim().length < 3) {
+      newErrors.name = "Name must be at least 3 characters";
+    }
+
+    // Email
+    if (!form.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(form.email)) {
+      newErrors.email = "Enter a valid email address";
+    }
+
+    // Phone
+    if (!form.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^[6-9]\d{9}$/.test(form.phone)) {
+      newErrors.phone = "Enter a valid 10-digit mobile number";
+    }
+
+    // Password
+    if (!form.password.trim()) {
+      newErrors.password = "Password is required";
+    } else if (form.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
+    }
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [name]: "",
+    }));
   };
 
   const registerUser = async () => {
-    if (!form.name || !form.email || !form.phone || !form.password) {
-      return alert("Please fill all fields");
-    }
+    if (!validate()) return;
 
     try {
       setLoading(true);
@@ -62,6 +113,9 @@ export default function RegisterForm() {
       alert(data.message);
 
       if (res.ok) {
+        toast.success(
+          "An OTP has been sent to your email address. Please verify your account.",
+        );
         setOpenOtp(true);
       }
     } catch (err) {
@@ -72,12 +126,36 @@ export default function RegisterForm() {
   };
 
   const verifyOtp = async () => {
+    // Clear previous OTP error
+    setErrors((prev) => ({
+      ...prev,
+      otp: "",
+    }));
+
+    if (!otp.trim()) {
+      setErrors((prev) => ({
+        ...prev,
+        otp: "OTP is required",
+      }));
+      return;
+    }
+
+    if (!/^\d{6}$/.test(otp)) {
+      setErrors((prev) => ({
+        ...prev,
+        otp: "OTP must be exactly 6 digits",
+      }));
+      return;
+    }
+
     try {
       setOtpLoading(true);
 
       const res = await fetch(`${API_URL}/auth/verify-otp`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           email: form.email,
           otp,
@@ -85,14 +163,22 @@ export default function RegisterForm() {
       });
 
       const data = await res.json();
-      alert(data.message);
 
       if (res.ok) {
+        alert(data.message);
         setOpenOtp(false);
         router.push("/login");
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          otp: data.message || "Invalid OTP",
+        }));
       }
     } catch (err) {
-      alert("OTP verification failed");
+      setErrors((prev) => ({
+        ...prev,
+        otp: "OTP verification failed",
+      }));
     } finally {
       setOtpLoading(false);
     }
@@ -105,8 +191,7 @@ export default function RegisterForm() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background:
-          "linear-gradient(135deg, #f7f7f7 0%, #e9e9e9 100%)",
+        background: "linear-gradient(135deg, #f7f7f7 0%, #e9e9e9 100%)",
         p: 2,
       }}
     >
@@ -122,19 +207,11 @@ export default function RegisterForm() {
       >
         {/* BRAND HEADER */}
         <Box textAlign="center" mb={3}>
-          <Typography
-            variant="h4"
-            fontWeight={800}
-            letterSpacing={4}
-          >
+          <Typography variant="h4" fontWeight={800} letterSpacing={4}>
             VELOURA
           </Typography>
 
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            mt={1}
-          >
+          <Typography variant="body2" color="text.secondary" mt={1}>
             Create your premium fashion account
           </Typography>
         </Box>
@@ -147,6 +224,8 @@ export default function RegisterForm() {
             name="name"
             value={form.name}
             onChange={handleChange}
+            error={Boolean(errors.name)}
+            helperText={errors.name}
             fullWidth
             InputProps={{
               startAdornment: (
@@ -162,6 +241,8 @@ export default function RegisterForm() {
             name="email"
             value={form.email}
             onChange={handleChange}
+            error={Boolean(errors.email)}
+            helperText={errors.email}
             fullWidth
             InputProps={{
               startAdornment: (
@@ -177,6 +258,8 @@ export default function RegisterForm() {
             name="phone"
             value={form.phone}
             onChange={handleChange}
+            error={Boolean(errors.phone)}
+            helperText={errors.phone}
             fullWidth
             InputProps={{
               startAdornment: (
@@ -193,6 +276,8 @@ export default function RegisterForm() {
             name="password"
             value={form.password}
             onChange={handleChange}
+            error={Boolean(errors.password)}
+            helperText={errors.password}
             fullWidth
             InputProps={{
               startAdornment: (
@@ -214,7 +299,7 @@ export default function RegisterForm() {
               fontWeight: 700,
               textTransform: "none",
               fontSize: 16,
-              bgcolor:"black"
+              bgcolor: "black",
             }}
           >
             {loading ? (
@@ -224,17 +309,13 @@ export default function RegisterForm() {
             )}
           </Button>
 
-          <Typography
-            textAlign="center"
-            color="text.secondary"
-            fontSize={14}
-          >
+          <Typography textAlign="center" color="text.secondary" fontSize={14}>
             Already have an account?{" "}
             <span
               style={{
                 fontWeight: 700,
                 cursor: "pointer",
-                color:"blue"
+                color: "blue",
               }}
               onClick={() => router.push("/login")}
             >
@@ -261,41 +342,43 @@ export default function RegisterForm() {
         </DialogTitle>
 
         <DialogContent>
-          <Typography
-            textAlign="center"
-            color="text.secondary"
-            mb={2}
-          >
+          <Typography textAlign="center" color="text.secondary" mb={2}>
             Enter the OTP sent to <b>{form.email}</b>
           </Typography>
-
           <TextField
             label="Enter OTP"
             value={otp}
-            onChange={(e) => setOtp(e.target.value)}
+            onChange={(e) => {
+              setOtp(e.target.value);
+
+              setErrors((prev) => ({
+                ...prev,
+                otp: "",
+              }));
+            }}
+            error={Boolean(errors.otp)}
+            helperText={errors.otp}
             fullWidth
             inputProps={{
+              maxLength: 6,
               style: {
                 textAlign: "center",
                 letterSpacing: 8,
                 fontSize: 20,
                 fontWeight: 700,
               },
-              maxLength: 6,
             }}
           />
         </DialogContent>
 
         <DialogActions sx={{ px: 5, pb: 2 }}>
-          <Button onClick={() => setOpenOtp(false)}>
-            Cancel
-          </Button>
+          <Button onClick={() => setOpenOtp(false)}>Cancel</Button>
 
           <Button
             onClick={verifyOtp}
             variant="contained"
             disabled={otpLoading}
-            sx={{bgcolor:"black"}}
+            sx={{ bgcolor: "black" }}
             fullWidth
           >
             {otpLoading ? (

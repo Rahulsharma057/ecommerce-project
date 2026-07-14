@@ -26,16 +26,56 @@ export default function LoginForm() {
     email: "",
     password: "",
   });
+  const [errors, setErrors] = useState({
+  email: "",
+  password: "",
+});
 
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
-  };
+
+const validate = () => {
+  const newErrors = {};
+
+  // Email
+  if (!form.email.trim()) {
+    newErrors.email = "Email is required";
+  } else if (
+    !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(form.email)
+  ) {
+    newErrors.email = "Enter a valid email address";
+  }
+
+  // Password
+  if (!form.password.trim()) {
+    newErrors.password = "Password is required";
+  } else if (form.password.length < 6) {
+    newErrors.password = "Password must be at least 6 characters";
+  }
+
+  setErrors(newErrors);
+
+  return Object.keys(newErrors).length === 0;
+};
+
+
+const handleChange = (e) => {
+  const { name, value } = e.target;
+
+  setForm((prev) => ({
+    ...prev,
+    [name]: value,
+  }));
+
+  setErrors((prev) => ({
+    ...prev,
+    [name]: "",
+  }));
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+      if (!validate()) return;
+
     setLoading(true);
 
     try {
@@ -95,36 +135,40 @@ export default function LoginForm() {
 
         <Box component="form" onSubmit={handleSubmit}>
           <Stack spacing={3}>
-            <TextField
-              fullWidth
-              label="Email Address"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <EmailOutlinedIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
+   <TextField
+  fullWidth
+  label="Email Address"
+  name="email"
+  value={form.email}
+  onChange={handleChange}
+  error={Boolean(errors.email)}
+  helperText={errors.email}
+  InputProps={{
+    startAdornment: (
+      <InputAdornment position="start">
+        <EmailOutlinedIcon />
+      </InputAdornment>
+    ),
+  }}
+/>
 
-            <TextField
-              fullWidth
-              type="password"
-              label="Password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockOutlinedIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
+ <TextField
+  fullWidth
+  type="password"
+  label="Password"
+  name="password"
+  value={form.password}
+  onChange={handleChange}
+  error={Boolean(errors.password)}
+  helperText={errors.password}
+  InputProps={{
+    startAdornment: (
+      <InputAdornment position="start">
+        <LockOutlinedIcon />
+      </InputAdornment>
+    ),
+  }}
+/>
 
             <Box textAlign="right">
               <Typography
