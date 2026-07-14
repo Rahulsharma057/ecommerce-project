@@ -3,24 +3,31 @@ const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 const cloudinary = require("../config/cloudinary");
 const generateInvoiceNumber = require("../utils/invoiceNumber");
-
+const PaymentSetting = require("../models/PaymentSetting");
+const crypto = require("crypto");
+const Coupon = require("../models/Coupon");
 const RETURN_WINDOW_DAYS = 7;
 
-function calculateTotals(items, discountPercent = 0) {
-  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+function calculateTotals(items, discountAmount = 0) {
+  const subtotal = items.reduce(
+    (acc, item) => acc + item.price * item.quantity,
+    0,
+  );
   const shippingFee = subtotal >= 2000 || subtotal === 0 ? 0 : 99;
   const tax = Math.round(subtotal * 0.05);
-  const discount = Math.round((subtotal * discountPercent) / 100);
+
+  const discount = Math.min(Math.max(discountAmount, 0), subtotal);
+  const discountPercent = subtotal > 0 ? (discount / subtotal) * 100 : 0;
+
   const totalAmount = Math.max(subtotal + shippingFee + tax - discount, 0);
-  return { subtotal, shippingFee, tax, discount, totalAmount };
+
+  return { subtotal, shippingFee, tax, discount, discountPercent, totalAmount };
 }
 
-// Which item ids can NOT be returned right now — either cancelled,
-// or already part of a return batch that's still active or completed
-// (Requested / Approved / Refunded). Items from a REJECTED batch are
-// excluded from this list, so they become returnable again.
 function getIneligibleReturnItemIds(order) {
-  const cancelledIds = (order.cancelledItems || []).map((i) => i.itemId.toString());
+  const cancelledIds = (order.cancelledItems || []).map((i) =>
+    i.itemId.toString(),
+  );
 
   const blockedByReturn = (order.returns || [])
     .filter((r) => r.status !== "Rejected")
@@ -33,8 +40,54 @@ function getIneligibleReturnItemIds(order) {
 // PLACE ORDER (USER)
 // =========================
 exports.placeOrder = async (req, res) => {
+ 
   try {
-    const { items, shippingAddress, paymentMethod, coupon, discountPercent = 0 } = req.body;
+    const {
+      items,
+      shippingAddress,
+      paymentMethod,
+      coupon,
+      discount = 0,
+      transactionId = "",
+      razorpayOrderId = "",
+      razorpayPaymentId = "",
+      razorpaySignature = "",
+      paymentChannel = "",
+    } = req.body;
+ if (paymentMethod === "RAZORPAY") {
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      return res.status(400).json({
+        message: "Payment verification data missing",
+      });
+    }
+  }
+    const paymentSettings = await PaymentSetting.findOne();
+    if (paymentMethod === "RAZORPAY") {
+      const generatedSignature = crypto
+        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+        .update(razorpayOrderId + "|" + razorpayPaymentId)
+        .digest("hex");
+
+      if (generatedSignature !== razorpaySignature) {
+        return res.status(400).json({
+          message: "Invalid payment signature",
+        });
+      }
+    }
+
+    if (paymentSettings) {
+      if (paymentMethod === "COD" && !paymentSettings.cod.enabled) {
+        return res.status(400).json({
+          message: "COD is currently unavailable",
+        });
+      }
+
+      if (paymentMethod === "RAZORPAY" && !paymentSettings.razorpay.enabled) {
+        return res.status(400).json({
+          message: "Online payment is currently unavailable",
+        });
+      }
+    }
 
     if (!items || items.length === 0) {
       return res.status(400).json({ message: "Cart empty" });
@@ -42,21 +95,48 @@ exports.placeOrder = async (req, res) => {
 
     for (let item of items) {
       const product = await Product.findById(item.productId);
-      if (!product) return res.status(404).json({ message: "Product not found" });
+      if (!product)
+        return res.status(404).json({ message: "Product not found" });
       if (product.stock < item.quantity) {
-        return res.status(400).json({ message: `${product.name} is out of stock` });
+        return res
+          .status(400)
+          .json({ message: `${product.name} is out of stock` });
       }
+
+      item.category = product.category || "";
+      item.subCategory = product.subCategory || "";
+      item.brand = product.brand || "";
+      item.fabric = product.fabric || "";
+      item.sku = item.sku || product.sku || "";
+      item.color = item.color || "";
+      item.size = item.size || "";
     }
 
-    const { subtotal, shippingFee, tax, discount, totalAmount } = calculateTotals(items, discountPercent);
+    const {
+      subtotal,
+      shippingFee,
+      tax,
+      discount: appliedDiscount,
+      discountPercent,
+      totalAmount,
+    } = calculateTotals(items, discount);
 
+    // FIX: Razorpay order ka matlab payment already verify ho chuka hai
+    // (RazorpayPayment handler signature check karta hai place karne se pehle),
+    // isliye ye "Paid" mark hota hai; baaki methods "Pending" rehte hain.
     const order = await Order.create({
       userId: req.user.id,
       items,
       shippingAddress,
       paymentMethod,
+      paymentStatus: paymentMethod === "RAZORPAY" ? "Paid" : "Pending",
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+      paymentChannel,
+      paymentVerifiedAt: paymentMethod === "RAZORPAY" ? new Date() : null,
       couponCode: coupon,
-      discount,
+      discount: appliedDiscount,
       discountPercent,
       subtotal,
       shippingFee,
@@ -65,11 +145,19 @@ exports.placeOrder = async (req, res) => {
       invoiceNumber: generateInvoiceNumber(),
       invoiceDate: new Date(),
     });
-
+if (coupon) {
+  await Coupon.findByIdAndUpdate(coupon, {
+    $inc: {
+      usedCount: 1,
+    },
+  });
+}
     await Cart.deleteMany({ userId: req.user.id });
 
     for (let item of items) {
-      await Product.findByIdAndUpdate(item.productId, { $inc: { stock: -item.quantity } });
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: -item.quantity },
+      });
     }
 
     res.status(201).json(order);
@@ -78,11 +166,108 @@ exports.placeOrder = async (req, res) => {
   }
 };
 
+/* exports.verifyPaymentAndPlaceOrder = async (req, res) => {
+  try {
+    const { paymentId, razorpay_order_id, razorpay_signature, orderData } =
+      req.body;
+
+    const body = razorpay_order_id + "|" + paymentId;
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        message: "Payment verification failed",
+      });
+    }
+    if(
+!paymentId ||
+!razorpay_order_id ||
+!razorpay_signature ||
+!orderData
+){
+return res.status(400).json({
+message:"Invalid payment data"
+});
+}
+for (let item of orderData.items) {
+
+  const product = await Product.findById(item.productId);
+
+  if (!product) {
+    return res.status(404).json({
+      message:"Product not found"
+    });
+  }
+
+  item.category = product.category || "";
+  item.subCategory = product.subCategory || "";
+  item.brand = product.brand || "";
+  item.fabric = product.fabric || "";
+  item.sku = product.sku || "";
+
+}
+    // yaha razorpay verify already frontend se ho chuka hoga
+
+    const order = await Order.create({
+      userId: req.user.id,
+
+      items: orderData.items,
+
+      shippingAddress: orderData.shippingAddress,
+
+      paymentMethod: "RAZORPAY",
+
+      paymentStatus: "Paid",
+
+      transactionId: paymentId,
+
+      couponCode: orderData.coupon,
+
+      discount: orderData.discount,
+
+      subtotal: orderData.subtotal,
+
+      shippingFee: orderData.shippingFee,
+
+      tax: orderData.tax,
+
+     totalAmount:
+orderData.totalAmount,
+      invoiceNumber: generateInvoiceNumber(),
+
+      invoiceDate: new Date(),
+    });
+
+    await Cart.deleteMany({
+      userId: req.user.id,
+    });
+
+    for (let item of orderData.items) {
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: {
+          stock: -item.quantity,
+        },
+      });
+    }
+
+    res.status(201).json(order);
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+}; */
 // =========================
 // USER ORDERS
 // =========================
 exports.getMyOrders = async (req, res) => {
-  const orders = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
+  const orders = await Order.find({ userId: req.user.id }).sort({
+    createdAt: -1,
+  });
   res.json(orders);
 };
 
@@ -100,11 +285,14 @@ exports.cancelOrder = async (req, res) => {
     }
     if (order.status === "Delivered") {
       return res.status(400).json({
-        message: "Delivered orders cannot be cancelled. Please use the return option instead.",
+        message:
+          "Delivered orders cannot be cancelled. Please use the return option instead.",
       });
     }
     if (req.user.role !== "admin" && order.status !== "Pending") {
-      return res.status(400).json({ message: "You can only cancel pending orders" });
+      return res
+        .status(400)
+        .json({ message: "You can only cancel pending orders" });
     }
 
     let selectedItemIds = req.body.items;
@@ -120,22 +308,39 @@ exports.cancelOrder = async (req, res) => {
     }
 
     const orderItemIds = order.items.map((item) => item._id.toString());
-    const invalidIds = selectedItemIds.filter((id) => !orderItemIds.includes(id));
+    const invalidIds = selectedItemIds.filter(
+      (id) => !orderItemIds.includes(id),
+    );
     if (invalidIds.length > 0) {
-      return res.status(400).json({ message: "One or more selected items do not belong to this order" });
+      return res.status(400).json({
+        message: "One or more selected items do not belong to this order",
+      });
     }
 
-    const alreadyCancelledIds = order.cancelledItems?.map((item) => item.itemId.toString()) || [];
-    const duplicateItems = selectedItemIds.filter((id) => alreadyCancelledIds.includes(id));
+    const alreadyCancelledIds =
+      order.cancelledItems?.map((item) => item.itemId.toString()) || [];
+    const duplicateItems = selectedItemIds.filter((id) =>
+      alreadyCancelledIds.includes(id),
+    );
     if (duplicateItems.length > 0) {
-      return res.status(400).json({ message: "One or more selected items are already cancelled" });
+      return res.status(400).json({
+        message: "One or more selected items are already cancelled",
+      });
     }
 
-    const isFullCancel = selectedItemIds.length === order.items.length;
-    const itemsToCancel = order.items.filter((item) => selectedItemIds.includes(item._id.toString()));
+    const remainingItems = order.items.filter(
+      (item) => !selectedItemIds.includes(item._id.toString()),
+    );
+
+    const isFullCancel = remainingItems.length === 0;
+    const itemsToCancel = order.items.filter((item) =>
+      selectedItemIds.includes(item._id.toString()),
+    );
 
     for (const item of itemsToCancel) {
-      await Product.findByIdAndUpdate(item.productId, { $inc: { stock: item.quantity } });
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: item.quantity },
+      });
     }
 
     order.cancelledItems = [
@@ -148,23 +353,50 @@ exports.cancelOrder = async (req, res) => {
         quantity: item.quantity,
         price: item.price,
         total: item.price * item.quantity,
-        reason: reason || "",
+        color: item.color || "",
+        size: item.size || "",
+        reason: req.user.role === "admin" ? "" : reason || "",
+        adminNote: req.user.role === "admin" ? reason || "" : "",
+        cancelledBy: req.user.role,
         cancelledAt: new Date(),
       })),
     ];
 
     if (isFullCancel) {
       order.status = "Cancelled";
-      order.cancelReason = reason || "";
+
+      order.items = [];
+      order.subtotal = 0;
+      order.shippingFee = 0;
+      order.tax = 0;
+      order.discount = 0;
+      order.discountPercent = 0;
+      order.totalAmount = 0;
+
+      if (req.user.role === "admin") {
+        order.cancelReason = "";
+        order.adminCancelNote = reason || "";
+      } else {
+        order.cancelReason = reason || "";
+        order.adminCancelNote = "";
+      }
+
       order.cancelledBy = req.user.role;
       order.cancelledAt = new Date();
     } else {
-      order.items = order.items.filter((item) => !selectedItemIds.includes(item._id.toString()));
+      order.items = remainingItems;
 
-      const { subtotal, shippingFee, tax, discount, totalAmount } = calculateTotals(
-        order.items,
-        order.discountPercent || 0,
+      const rawSubtotal = order.items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
       );
+
+      const proportionalDiscount = Math.round(
+        (rawSubtotal * (order.discountPercent || 0)) / 100,
+      );
+
+      const { subtotal, shippingFee, tax, discount, totalAmount } =
+        calculateTotals(order.items, proportionalDiscount);
 
       order.subtotal = subtotal;
       order.shippingFee = shippingFee;
@@ -176,7 +408,9 @@ exports.cancelOrder = async (req, res) => {
     await order.save();
 
     res.json({
-      message: isFullCancel ? "Order cancelled successfully" : "Selected item(s) cancelled successfully",
+      message: isFullCancel
+        ? "Order cancelled successfully"
+        : "Selected item(s) cancelled successfully",
       order,
     });
   } catch (err) {
@@ -195,7 +429,25 @@ exports.getOrder = async (req, res) => {
       .populate("couponCode", "code discountType discountValue");
 
     if (!order) return res.status(404).json({ message: "Order not found" });
-    res.json(order);
+  res.json({
+  ...order.toObject(),
+
+  payment: {
+    method: order.paymentMethod,
+    status: order.paymentStatus,
+    amount: order.totalAmount,
+
+    paymentDate: order.paymentVerifiedAt,
+
+    paymentId: order.razorpayPaymentId,
+
+    orderId: order.razorpayOrderId,
+
+    channel: order.paymentChannel,
+
+    refundedAmount: order.refundedAmount || 0,
+  },
+});
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -205,7 +457,9 @@ exports.getOrder = async (req, res) => {
 // ADMIN: ALL ORDERS
 // =========================
 exports.getAllOrdersAdmin = async (req, res) => {
-  const orders = await Order.find().populate("userId", "name email").sort({ createdAt: -1 });
+  const orders = await Order.find()
+    .populate("userId", "name email")
+    .sort({ createdAt: -1 });
   res.json(orders);
 };
 
@@ -220,7 +474,27 @@ exports.getSingleOrderAdmin = async (req, res) => {
       .populate("couponCode", "code discountType discountValue");
 
     if (!order) return res.status(404).json({ message: "Order not found" });
-    res.json(order);
+res.json({
+  ...order.toObject(),
+
+  payment: {
+    method: order.paymentMethod,
+
+    status: order.paymentStatus,
+
+    amount: order.totalAmount,
+
+    paymentDate: order.paymentVerifiedAt,
+
+    paymentId: order.razorpayPaymentId,
+
+    orderId: order.razorpayOrderId,
+
+    channel: order.paymentChannel,
+
+    refundedAmount: order.refundedAmount || 0,
+  },
+});
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -232,7 +506,13 @@ exports.getSingleOrderAdmin = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const allowed = ["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"];
+    const allowed = [
+      "Pending",
+      "Confirmed",
+      "Shipped",
+      "Delivered",
+      "Cancelled",
+    ];
 
     if (!allowed.includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
@@ -242,11 +522,19 @@ exports.updateOrderStatus = async (req, res) => {
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     if (order.status === "Cancelled") {
-      return res.status(400).json({ message: "Cancelled orders cannot change status" });
+      return res
+        .status(400)
+        .json({ message: "Cancelled orders cannot change status" });
     }
 
     order.status = status;
+if (status === "Delivered" && order.paymentMethod === "COD") {
+  order.paymentStatus = "Paid";
 
+  if (!order.paymentVerifiedAt) {
+    order.paymentVerifiedAt = new Date();
+  }
+}
     if (status === "Delivered" && !order.deliveredAt) {
       order.deliveredAt = new Date();
     }
@@ -260,9 +548,6 @@ exports.updateOrderStatus = async (req, res) => {
 
 // =========================
 // USER: REQUEST RETURN
-// FIX: creates a NEW independent batch each time — doesn't overwrite
-// previous returns, and doesn't block returning OTHER eligible items
-// just because an earlier return exists on this order.
 // =========================
 exports.requestReturn = async (req, res) => {
   try {
@@ -272,11 +557,15 @@ exports.requestReturn = async (req, res) => {
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     if (order.status !== "Delivered") {
-      return res.status(400).json({ message: "Only delivered orders can be returned" });
+      return res
+        .status(400)
+        .json({ message: "Only delivered orders can be returned" });
     }
 
     if (order.deliveredAt) {
-      const daysSince = (Date.now() - new Date(order.deliveredAt).getTime()) / (1000 * 60 * 60 * 24);
+      const daysSince =
+        (Date.now() - new Date(order.deliveredAt).getTime()) /
+        (1000 * 60 * 60 * 24);
       if (daysSince > RETURN_WINDOW_DAYS) {
         return res.status(400).json({
           message: `Return window has expired. Returns are only accepted within ${RETURN_WINDOW_DAYS} days of delivery.`,
@@ -292,24 +581,33 @@ exports.requestReturn = async (req, res) => {
     }
 
     if (!Array.isArray(selectedItemIds) || selectedItemIds.length === 0) {
-      return res.status(400).json({ message: "Select at least one item to return" });
+      return res
+        .status(400)
+        .json({ message: "Select at least one item to return" });
     }
 
     const orderItemIds = order.items.map((item) => item._id.toString());
-    const invalidIds = selectedItemIds.filter((id) => !orderItemIds.includes(id));
+    const invalidIds = selectedItemIds.filter(
+      (id) => !orderItemIds.includes(id),
+    );
     if (invalidIds.length > 0) {
-      return res.status(400).json({ message: "One or more selected items do not belong to this order" });
+      return res.status(400).json({
+        message: "One or more selected items do not belong to this order",
+      });
     }
 
-    // THE ACTUAL FIX: only block items that are individually already
-    // cancelled or in an active/completed return — not the whole order.
     const ineligibleIds = getIneligibleReturnItemIds(order);
     const blocked = selectedItemIds.filter((id) => ineligibleIds.has(id));
     if (blocked.length > 0) {
       return res.status(400).json({
-        message: "One or more selected items are already cancelled or part of an existing return",
+        message:
+          "One or more selected items are already cancelled or part of an existing return",
       });
     }
+
+    const selectedItems = order.items.filter((item) =>
+      selectedItemIds.includes(item._id.toString()),
+    );
 
     let images = [];
     if (req.files && req.files.length > 0) {
@@ -322,7 +620,20 @@ exports.requestReturn = async (req, res) => {
       }
     }
 
-    const selectedItems = order.items.filter((item) => selectedItemIds.includes(item._id.toString()));
+    const itemsSubtotal = selectedItems.reduce(
+      (acc, item) => acc + item.price * item.quantity,
+      0,
+    );
+
+    const discountShare =
+      order.subtotal > 0
+        ? Math.round((itemsSubtotal / order.subtotal) * (order.discount || 0))
+        : 0;
+
+    const taxShare =
+      order.subtotal > 0
+        ? Math.round((itemsSubtotal / order.subtotal) * (order.tax || 0))
+        : 0;
 
     order.returns.push({
       items: selectedItems.map((item) => ({
@@ -333,6 +644,8 @@ exports.requestReturn = async (req, res) => {
         quantity: item.quantity,
         price: item.price,
         total: item.price * item.quantity,
+        color: item.color || "",
+        size: item.size || "",
       })),
       reason: description || "",
       description: description || "",
@@ -340,6 +653,10 @@ exports.requestReturn = async (req, res) => {
       status: "Requested",
       pickupStatus: "NotPicked",
       refundStatus: "None",
+      itemsSubtotal,
+      discountAmount: discountShare,
+      taxAmount: taxShare,
+      refundTax: true,
       refundAmount: 0,
       requestedAt: new Date(),
       timeline: [
@@ -371,7 +688,8 @@ exports.updateReturnStatus = async (req, res) => {
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     const returnBatch = order.returns.id(returnId);
-    if (!returnBatch) return res.status(404).json({ message: "Return request not found" });
+    if (!returnBatch)
+      return res.status(404).json({ message: "Return request not found" });
 
     const allowed = ["Requested", "Approved", "Rejected", "Refunded"];
     if (!allowed.includes(status)) {
@@ -379,7 +697,9 @@ exports.updateReturnStatus = async (req, res) => {
     }
 
     if (status === "Refunded" && returnBatch.pickupStatus !== "Received") {
-      return res.status(400).json({ message: "Cannot mark as refunded before the item is received" });
+      return res.status(400).json({
+        message: "Cannot mark as refunded before the item is received",
+      });
     }
 
     returnBatch.status = status;
@@ -415,22 +735,33 @@ exports.updatePickupStatus = async (req, res) => {
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     const returnBatch = order.returns.id(returnId);
-    if (!returnBatch) return res.status(404).json({ message: "Return request not found" });
+    if (!returnBatch)
+      return res.status(404).json({ message: "Return request not found" });
 
-    const allowed = ["NotPicked", "PickupScheduled", "Picked", "InTransit", "Received"];
+    const allowed = [
+      "NotPicked",
+      "PickupScheduled",
+      "Picked",
+      "InTransit",
+      "Received",
+    ];
     if (!allowed.includes(pickupStatus)) {
       return res.status(400).json({ message: "Invalid pickup status" });
     }
 
     if (returnBatch.status !== "Approved") {
-      return res.status(400).json({ message: "Pickup can only be updated for an approved return" });
+      return res.status(400).json({
+        message: "Pickup can only be updated for an approved return",
+      });
     }
 
     returnBatch.pickupStatus = pickupStatus;
-
     if (pickupStatus === "Received") {
       returnBatch.refundStatus = "Pending";
-      returnBatch.refundAmount = returnBatch.items.reduce((acc, i) => acc + i.total, 0);
+      returnBatch.refundAmount =
+        returnBatch.itemsSubtotal -
+        returnBatch.discountAmount +
+        (returnBatch.refundTax ? returnBatch.taxAmount : 0);
     }
 
     await order.save();
@@ -445,34 +776,127 @@ exports.updatePickupStatus = async (req, res) => {
 // =========================
 exports.updateRefundStatus = async (req, res) => {
   try {
-    const { refundStatus } = req.body;
+    const { refundStatus, refundAmount, refundTax } = req.body;
     const { orderId, returnId } = req.params;
 
     const order = await Order.findById(orderId);
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     const returnBatch = order.returns.id(returnId);
-    if (!returnBatch) return res.status(404).json({ message: "Return request not found" });
+    if (!returnBatch)
+      return res.status(404).json({ message: "Return request not found" });
 
     if (returnBatch.pickupStatus !== "Received") {
-      return res.status(400).json({ message: "Refund allowed only after item is received" });
+      return res
+        .status(400)
+        .json({ message: "Refund allowed only after item is received" });
     }
 
-    const allowed = ["None", "Pending", "Completed"];
-    if (!allowed.includes(refundStatus)) {
+    const allowedStatus = ["None", "Pending", "Completed"];
+    if (refundStatus && !allowedStatus.includes(refundStatus)) {
       return res.status(400).json({ message: "Invalid refund status" });
     }
 
-    returnBatch.refundStatus = refundStatus;
+    if (typeof refundTax === "boolean") {
+      returnBatch.refundTax = refundTax;
+    }
 
-    if (refundStatus === "Completed") {
+    const maxRefundable =
+      returnBatch.itemsSubtotal -
+      returnBatch.discountAmount +
+      returnBatch.taxAmount;
+
+    if (typeof refundAmount === "number" && !Number.isNaN(refundAmount)) {
+      if (refundAmount < 0) {
+        return res
+          .status(400)
+          .json({ message: "Refund amount cannot be negative" });
+      }
+      if (refundAmount > maxRefundable) {
+        return res.status(400).json({
+          message: `Refund amount cannot exceed ₹${maxRefundable} (item value${returnBatch.taxAmount ? " + tax" : ""})`,
+        });
+      }
+      returnBatch.refundAmount = refundAmount;
+    } else {
+      returnBatch.refundAmount =
+        returnBatch.itemsSubtotal -
+        returnBatch.discountAmount +
+        (returnBatch.refundTax ? returnBatch.taxAmount : 0);
+    }
+
+    if (refundStatus) {
+      returnBatch.refundStatus = refundStatus;
+    }
+    const wasCompleted = returnBatch.refundStatus === "Completed";
+
+    if (refundStatus) {
+      returnBatch.refundStatus = refundStatus;
+    }
+    if (!wasCompleted && returnBatch.refundStatus === "Completed") {
       returnBatch.completedAt = new Date();
       returnBatch.status = "Refunded";
+      returnBatch.timeline.push({
+        status: "Refunded",
+        message: `Refund of ₹${returnBatch.refundAmount} completed${
+          returnBatch.refundTax ? " (incl. tax)" : " (tax excluded)"
+        }`,
+        date: new Date(),
+      });
+      for (const item of returnBatch.items) {
+        await Product.findByIdAndUpdate(item.productId, {
+          $inc: {
+            stock: item.quantity,
+          },
+        });
+      }
+      // FIX: order-level running total was never being updated anywhere —
+      // the frontend was already reading order.refundedAmount, but nothing
+      // ever wrote to it. Now recalculated from all completed refunds.
+      order.refundedAmount = (order.returns || [])
+        .filter((r) => r.refundStatus === "Completed")
+        .reduce((sum, r) => sum + (r.refundAmount || 0), 0);
     }
 
     await order.save();
     res.json({ message: "Refund updated", order });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+exports.updatePaymentStatus = async (req, res) => {
+  try {
+    const { paymentStatus } = req.body;
+
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
+
+    order.paymentStatus = paymentStatus;
+
+    if (paymentStatus === "Paid") {
+      order.paymentVerifiedAt = new Date();
+    }
+
+    if (paymentStatus === "Refunded") {
+      order.refundedAmount = order.totalAmount;
+    }
+
+    await order.save();
+
+    res.json({
+      success: true,
+      message: "Payment status updated",
+      order,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
   }
 };

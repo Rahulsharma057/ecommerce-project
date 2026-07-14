@@ -2,6 +2,7 @@ import Providers from "./providers";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { ToastContainer } from "react-toastify";
+import Script from "next/script";
 import "react-toastify/dist/ReactToastify.css";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 export const metadata = {
@@ -45,7 +46,11 @@ export default function RootLayout({ children }) {
             <Footer />
           </Providers>
         </AppRouterCacheProvider>
+        <script 
+src="https://checkout.razorpay.com/v1/checkout.js"
+/>
       </body>
+
     </html>
   );
 }

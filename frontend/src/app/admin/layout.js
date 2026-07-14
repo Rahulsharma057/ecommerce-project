@@ -38,6 +38,15 @@ const menus = [
     name: "Dashboard",
     href: "/admin",
     icon: <DashboardOutlinedIcon fontSize="small" />,
+  }, {
+    name: "Catogory Control",
+    href: "/admin/attributes",
+    icon: <Inventory2OutlinedIcon fontSize="small" />,
+  },
+   {
+    name: "Payment Settings",
+    href: "/admin/payment-settings",
+    icon: <Inventory2OutlinedIcon fontSize="small" />,
   },
   {
     name: "Products",

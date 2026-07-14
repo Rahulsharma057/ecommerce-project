@@ -15,7 +15,7 @@ const {
   requestReturn,
   updateReturnStatus,
   updatePickupStatus,
-  updateRefundStatus,
+  updateRefundStatus,verifyPaymentAndPlaceOrder,updatePaymentStatus
 } = require("../controllers/orderController");
 
 // ================= USER =================
@@ -24,9 +24,19 @@ router.get("/my", authMiddleware, getMyOrders);
 router.get("/:id", authMiddleware, getOrder);
 router.put("/cancel/:id", authMiddleware, cancelOrder);
 router.put("/return/:id", authMiddleware, uploadImage.array("images", 5), requestReturn);
+/* router.post(
+"/place-online",
+authMiddleware,
+verifyPaymentAndPlaceOrder
+); */
 
 // ================= ADMIN =================
 router.get("/admin/all", authMiddleware, adminMiddleware, getAllOrdersAdmin);
+router.put(
+  "/admin/payment/:id",
+authMiddleware, adminMiddleware,
+  updatePaymentStatus
+);
 router.get("/admin/:id", authMiddleware, adminMiddleware, getSingleOrderAdmin);
 router.put("/admin/:id", authMiddleware, adminMiddleware, updateOrderStatus);
 

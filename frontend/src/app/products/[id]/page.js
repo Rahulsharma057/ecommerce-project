@@ -24,9 +24,6 @@ import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
 import StarIcon from "@mui/icons-material/Star";
@@ -39,6 +36,7 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import ReplayOutlinedIcon from "@mui/icons-material/ReplayOutlined";
 import RateReviewOutlinedIcon from "@mui/icons-material/RateReviewOutlined";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useSelector, useDispatch } from "react-redux";
 import {
   addToWishlist,
@@ -48,11 +46,36 @@ import { addToCart } from "@/redux/slices/cartSlice";
 import ProductGrid from "@/components/product/ProductGrid";
 import { API_URL } from "@/lib/api";
 import LoadingButton from "@mui/lab/LoadingButton";
+import ConfirmationDialog from "@/components/common/ConfirmationDialog";
+
+// Simple label/value row for the "Product Details" panel — skips itself
+// entirely if there's no value, so the panel never shows empty rows.
+function DetailRow({ label, value }) {
+  if (value === undefined || value === null || value === "") return null;
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 2,
+        py: 1,
+        borderBottom: "1px solid #f1f5f9",
+        "&:last-child": { borderBottom: "none" },
+      }}
+    >
+      <Typography sx={{ fontSize: 13.5, color: "#64748b" }}>{label}</Typography>
+      <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: "#1e293b", textAlign: "right" }}>
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
 export default function ProductDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   const dispatch = useDispatch();
-const [buyNowLoading, setBuyNowLoading] = useState(false);
+  const [buyNowLoading, setBuyNowLoading] = useState(false);
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingReviewId, setEditingReviewId] = useState(null);
@@ -70,12 +93,42 @@ const [buyNowLoading, setBuyNowLoading] = useState(false);
   const [comment, setComment] = useState("");
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [userId, setUserId] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedSize, setSelectedSize] = useState("");
   const displayedReviews = showAllReviews
     ? product?.reviews || []
     : product?.reviews?.slice(0, 4) || [];
   const hasReviewed = product?.reviews?.some(
     (review) => review.userId === userId,
   );
+
+  // ── Variant awareness ──
+  // When a product has variants, addProduct/updateProduct force the
+  // top-level `stock` to 0 and the real stock/price live per color+size
+  // combination instead. Previously this page only ever read
+  // product.stock/product.price directly, so any variant product would
+  // show "Coming Soon" regardless of actual availability.
+  const hasVariants = Array.isArray(product?.variants) && product.variants.length > 0;
+
+  const matchedVariant = hasVariants
+    ? product.variants.find(
+        (v) =>
+          (!product.colors?.length || v.color === selectedColor) &&
+          (!product.sizes?.length || v.size === selectedSize),
+      )
+    : null;
+
+  const activeStock = hasVariants ? matchedVariant?.stock ?? 0 : product?.stock ?? 0;
+  const activePrice =
+    hasVariants && matchedVariant?.price > 0 ? matchedVariant.price : product?.price ?? 0;
+  const activeOriginalPrice =
+    hasVariants && matchedVariant?.originalPrice > 0
+      ? matchedVariant.originalPrice
+      : product?.originalPrice ?? 0;
+  const activeDiscount =
+    activeOriginalPrice > activePrice
+      ? Math.round(((activeOriginalPrice - activePrice) / activeOriginalPrice) * 100)
+      : 0;
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -122,6 +175,14 @@ const [buyNowLoading, setBuyNowLoading] = useState(false);
         setSelectedImage(data.images[0]);
       }
 
+      if (data.colors?.length) {
+        setSelectedColor(data.colors[0]);
+      }
+
+      if (data.sizes?.length) {
+        setSelectedSize(data.sizes[0]);
+      }
+
       if (data.category) {
         fetchRelatedProducts(data.category, data._id);
       }
@@ -133,6 +194,14 @@ const [buyNowLoading, setBuyNowLoading] = useState(false);
   useEffect(() => {
     fetchProduct();
   }, [fetchProduct]);
+
+  // If switching color/size drops the available stock below the currently
+  // selected quantity, pull the quantity back down so it stays valid.
+  useEffect(() => {
+    if (activeStock > 0 && quantity > activeStock) {
+      setQuantity(activeStock);
+    }
+  }, [selectedColor, selectedSize, activeStock]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateReview = async () => {
     const token = localStorage.getItem("token");
@@ -159,10 +228,8 @@ const [buyNowLoading, setBuyNowLoading] = useState(false);
 
       toast.success("Review Updated");
 
-      // Refresh product
       await fetchProduct();
 
-      // Reset form
       setEditingReviewId(null);
       setComment("");
       setRating(0);
@@ -222,23 +289,21 @@ const [buyNowLoading, setBuyNowLoading] = useState(false);
     }
   };
 
-  /*   useEffect(() => {
-    if (id) {
-      fetchProduct();
-    }
-  }, [id]); */
-
   const handleAddToCart = async () => {
     try {
       if (!product) return;
 
-      if (product.stock === 0) {
-        alert("Product is out of stock");
+      if (activeStock === 0) {
+        alert(
+          hasVariants
+            ? "This color/size combination is out of stock"
+            : "Product is out of stock",
+        );
         return;
       }
 
-      if (quantity > product.stock) {
-        alert(`Only ${product.stock} items available`);
+      if (quantity > activeStock) {
+        alert(`Only ${activeStock} items available`);
         return;
       }
 
@@ -258,6 +323,8 @@ const [buyNowLoading, setBuyNowLoading] = useState(false);
         body: JSON.stringify({
           productId: product._id,
           quantity,
+          color: selectedColor || undefined,
+          size: selectedSize || undefined,
         }),
       });
 
@@ -284,10 +351,6 @@ const [buyNowLoading, setBuyNowLoading] = useState(false);
       toast.info("Please login first.");
       return;
     }
-    /* if (!token) {
-      setLoginOpen(true);
-      return;
-    } */
     const wishlistId = wishlistMap[product?._id];
 
     if (wishlistId) {
@@ -366,74 +429,97 @@ const [buyNowLoading, setBuyNowLoading] = useState(false);
       }
 
       toast.success(data.message || "Thank you for your valuable feedback ❤️");
-      // reset form
       setComment("");
       setRating(0);
 
       fetchProduct();
     } catch (err) {
       console.log(err);
-      toast.error(data.message);
     } finally {
       setSubmittingReview(false);
     }
   };
-const handleBuyNow = async () => {
-  if (!product) return;
 
-  const token = localStorage.getItem("token");
+  const handleBuyNow = async () => {
+    if (!product) return;
 
-  if (!token) {
-    toast.error("Please login first");
-    router.push("/login");
-    return;
-  }
+    const token = localStorage.getItem("token");
 
-  setBuyNowLoading(true);
-
-  try {
-    // Optional: Latest stock check from backend
-    const res = await fetch(`${API_URL}/products/${product._id}`);
-    const latestProduct = await res.json();
-
-    if (!res.ok) {
-      toast.error("Unable to verify product.");
+    if (!token) {
+      toast.error("Please login first");
+      router.push("/login");
       return;
     }
 
-    if (latestProduct.stock === 0) {
-      toast.warning("Product is out of stock");
-      return;
+    setBuyNowLoading(true);
+
+    try {
+      const res = await fetch(`${API_URL}/products/${product._id}`);
+      const latestProduct = await res.json();
+
+      if (!res.ok) {
+        toast.error("Unable to verify product.");
+        return;
+      }
+
+      // Re-check stock against the FRESH data, using the same
+      // variant-aware logic as the page itself, so a stale page can't
+      // let someone buy a combination that just sold out.
+      const latestHasVariants =
+        Array.isArray(latestProduct.variants) && latestProduct.variants.length > 0;
+      const latestVariant = latestHasVariants
+        ? latestProduct.variants.find(
+            (v) =>
+              (!product.colors?.length || v.color === selectedColor) &&
+              (!product.sizes?.length || v.size === selectedSize),
+          )
+        : null;
+      const latestStock = latestHasVariants
+        ? latestVariant?.stock ?? 0
+        : latestProduct.stock ?? 0;
+      const latestPrice =
+        latestHasVariants && latestVariant?.price > 0
+          ? latestVariant.price
+          : latestProduct.price ?? 0;
+
+      if (latestStock === 0) {
+        toast.warning(
+          latestHasVariants
+            ? "This color/size combination is out of stock"
+            : "Product is out of stock",
+        );
+        return;
+      }
+
+      if (quantity > latestStock) {
+        toast.info(
+          `Only ${latestStock} item${latestStock > 1 ? "s" : ""} available.`,
+        );
+        return;
+      }
+
+      const safeProduct = {
+        productId: latestProduct._id,
+        name: latestProduct.name || "Product",
+        image: latestProduct.images?.[0] || "",
+        price: latestPrice,
+        quantity,
+        stock: latestStock,
+        color: selectedColor || undefined,
+        size: selectedSize || undefined,
+      };
+
+      localStorage.removeItem("buyNow");
+      localStorage.setItem("buyNow", JSON.stringify([safeProduct]));
+
+      router.push("/checkout");
+    } catch (error) {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setBuyNowLoading(false);
     }
+  };
 
-    if (quantity > latestProduct.stock) {
-      toast.info(
-        `Only ${latestProduct.stock} item${latestProduct.stock > 1 ? "s" : ""} available.`
-      );
-      return;
-    }
-
-    const safeProduct = {
-      productId: latestProduct._id,
-      name: latestProduct.name || "Product",
-      image: latestProduct.images?.[0] || "",
-      price: latestProduct.price || 0,
-      quantity,
-      stock: latestProduct.stock,
-    };
-
-    localStorage.removeItem("buyNow");
-    localStorage.setItem("buyNow", JSON.stringify([safeProduct]));
-
-    router.push("/checkout");
-  } catch (error) {
-    toast.error("Something went wrong. Please try again.");
-  } finally {
-    setBuyNowLoading(false);
-  }
-};
-
-  /* ================= LOADING STATE ================= */
   if (loading) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -479,6 +565,9 @@ const handleBuyNow = async () => {
       </Container>
     );
   }
+
+  const dimensions = product.dimensions || {};
+  const hasDimensions = dimensions.length > 0 || dimensions.width > 0 || dimensions.height > 0;
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -539,7 +628,7 @@ const handleBuyNow = async () => {
                 )}
               </IconButton>
 
-              {product.stock <= 0 ? (
+              {activeStock <= 0 ? (
                 <Chip
                   label="OUT OF STOCK"
                   size="small"
@@ -554,9 +643,9 @@ const handleBuyNow = async () => {
                     letterSpacing: 0.5,
                   }}
                 />
-              ) : product.isSale ? (
+              ) : activeDiscount > 0 ? (
                 <Chip
-                  label="SALE"
+                  label={`${activeDiscount}% OFF`}
                   size="small"
                   sx={{
                     position: "absolute",
@@ -620,17 +709,32 @@ const handleBuyNow = async () => {
           md={6}
           sx={{
             order: {
-              xs: 2, // mobile me last
-              md: 2, // desktop me right side
+              xs: 2,
+              md: 2,
             },
           }}
         >
-          <Stack direction="row" spacing={1} mb={1.5}>
+          <Stack direction="row" spacing={1} mb={1.5} flexWrap="wrap" useFlexGap>
+            {product.brand && (
+              <Chip
+                label={product.brand}
+                size="small"
+                sx={{ bgcolor: "#111827", color: "#fff", fontWeight: 600 }}
+              />
+            )}
             <Chip
               label={product.category}
               size="small"
               sx={{ bgcolor: "#f1f5f9", color: "#475569", fontWeight: 600 }}
             />
+            {product.subCategory && (
+              <Chip
+                label={product.subCategory}
+                size="small"
+                variant="outlined"
+                sx={{ borderColor: "#e2e8f0", color: "#64748b", fontWeight: 600 }}
+              />
+            )}
             {product.isNewArrival && (
               <Chip
                 label="New"
@@ -667,13 +771,35 @@ const handleBuyNow = async () => {
             </Typography>
           </Stack>
 
-          <Typography
-            variant="h3"
-            fontWeight={800}
-            sx={{ mt: 2.5, color: "#0f172a" }}
-          >
-            ₹{product?.price?.toLocaleString()}
-          </Typography>
+          {/* ================= PRICE (variant-aware: uses the matched
+              color+size combination's price when the product has variants) ================= */}
+          <Stack direction="row" alignItems="baseline" spacing={1.5} mt={2.5}>
+            <Typography variant="h3" fontWeight={800} sx={{ color: "#0f172a" }}>
+              ₹{activePrice?.toLocaleString()}
+            </Typography>
+
+            {activeOriginalPrice > activePrice && (
+              <>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 16, sm: 20 },
+                    color: "#94a3b8",
+                    textDecoration: "line-through",
+                  }}
+                >
+                  ₹{activeOriginalPrice.toLocaleString()}
+                </Typography>
+                <Typography sx={{ fontSize: 15, fontWeight: 700, color: "#16a34a" }}>
+                  {activeDiscount}% off
+                </Typography>
+              </>
+            )}
+          </Stack>
+          {product.taxPercent > 0 && (
+            <Typography sx={{ fontSize: 12, color: "#94a3b8", mt: 0.5 }}>
+              Inclusive of all taxes
+            </Typography>
+          )}
 
           <Typography
             sx={{
@@ -683,36 +809,138 @@ const handleBuyNow = async () => {
               fontSize: 14.5,
             }}
           >
-            Premium quality fashion product with modern design, comfortable
-            fitting and high-quality fabric.
+            {product.description ||
+              "Premium quality fashion product with modern design, comfortable fitting and high-quality fabric."}
           </Typography>
 
           <Box sx={{ mt: 2 }}>
             <Chip
               label={
-                product.stock === 0
-                  ? "Coming Soon"
-                  : product.stock <= 5
-                    ? `🔥 Only ${product.stock} left`
+                activeStock === 0
+                  ? hasVariants
+                    ? "Out of Stock for this combination"
+                    : "Coming Soon"
+                  : activeStock <= 5
+                    ? `🔥 Only ${activeStock} left`
                     : "✅ In Stock"
               }
               sx={{
                 fontWeight: 600,
                 bgcolor:
-                  product.stock === 0
+                  activeStock === 0
                     ? "#eef2ff"
-                    : product.stock <= 5
+                    : activeStock <= 5
                       ? "#fffbeb"
                       : "#f0fdf4",
                 color:
-                  product.stock === 0
+                  activeStock === 0
                     ? "#4338ca"
-                    : product.stock <= 5
+                    : activeStock <= 5
                       ? "#a16207"
                       : "#15803d",
               }}
             />
           </Box>
+
+          {/* ================= FABRIC ================= */}
+          {product.fabric && (
+            <Stack direction="row" alignItems="center" spacing={1} mt={2}>
+              <Typography sx={{ fontWeight: 600, color: "#334155", fontSize: 14 }}>
+                Fabric:
+              </Typography>
+              <Chip
+                label={product.fabric}
+                size="small"
+                variant="outlined"
+                sx={{ borderColor: "#e2e8f0", color: "#334155" }}
+              />
+            </Stack>
+          )}
+
+          {/* ================= COLORS ================= */}
+          {product.colors?.length > 0 && (
+            <Box mt={3}>
+              <Typography sx={{ fontWeight: 600, color: "#334155", fontSize: 14, mb: 1 }}>
+                Color: <Box component="span" sx={{ fontWeight: 400, color: "#64748b" }}>{selectedColor}</Box>
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {product.colors.map((color) => {
+                  // If this product has variants, grey out colors that have
+                  // no stock at all (across every size) — previously every
+                  // color looked equally available even when sold out.
+                  const colorHasStock = hasVariants
+                    ? product.variants.some((v) => v.color === color && v.stock > 0)
+                    : true;
+                  return (
+                    <Chip
+                      key={color}
+                      label={color}
+                      onClick={() => setSelectedColor(color)}
+                      variant={selectedColor === color ? "filled" : "outlined"}
+                      sx={{
+                        fontWeight: 600,
+                        borderRadius: 2,
+                        opacity: colorHasStock ? 1 : 0.4,
+                        bgcolor: selectedColor === color ? "#111" : "transparent",
+                        color: selectedColor === color ? "#fff" : "#334155",
+                        borderColor: "#e2e8f0",
+                        "&:hover": {
+                          bgcolor: selectedColor === color ? "#000" : "#f8fafc",
+                        },
+                      }}
+                    />
+                  );
+                })}
+              </Stack>
+            </Box>
+          )}
+
+          {/* ================= SIZES ================= */}
+          {product.sizes?.length > 0 && (
+            <Box mt={2.5}>
+              <Typography sx={{ fontWeight: 600, color: "#334155", fontSize: 14, mb: 1 }}>
+                Size: <Box component="span" sx={{ fontWeight: 400, color: "#64748b" }}>{selectedSize}</Box>
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {product.sizes.map((size) => {
+                  const sizeHasStock = hasVariants
+                    ? product.variants.some(
+                        (v) =>
+                          v.size === size &&
+                          (!product.colors?.length || v.color === selectedColor) &&
+                          v.stock > 0,
+                      )
+                    : true;
+                  return (
+                    <Box
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      sx={{
+                        minWidth: 42,
+                        height: 42,
+                        px: 1.5,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: 2,
+                        border: "1.5px solid",
+                        borderColor: selectedSize === size ? "#111" : "#e2e8f0",
+                        bgcolor: selectedSize === size ? "#111" : "#fff",
+                        color: selectedSize === size ? "#fff" : "#334155",
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: "pointer",
+                        opacity: sizeHasStock ? 1 : 0.4,
+                        transition: "all .15s ease",
+                      }}
+                    >
+                      {size}
+                    </Box>
+                  );
+                })}
+              </Stack>
+            </Box>
+          )}
 
           {/* ================= QUANTITY ================= */}
           <Stack direction="row" spacing={2} alignItems="center" mt={4}>
@@ -748,21 +976,24 @@ const handleBuyNow = async () => {
 
               <IconButton
                 onClick={() => {
-                  if (product.stock === 0) {
-                    toast.warning("This product is currently out of stock.");
+                  if (activeStock === 0) {
+                    toast.warning(
+                      hasVariants
+                        ? "This color/size combination is out of stock."
+                        : "This product is currently out of stock.",
+                    );
                     return;
                   }
 
-                  if (quantity >= product.stock) {
+                  if (quantity >= activeStock) {
                     toast.info(
-                      `Only ${product.stock} item${product.stock > 1 ? "s" : ""} available in stock.`,
+                      `Only ${activeStock} item${activeStock > 1 ? "s" : ""} available in stock.`,
                     );
                     return;
                   }
 
                   setQuantity((prev) => prev + 1);
                 }}
-                //  disabled={quantity >= product.stock}
                 size="small"
                 sx={{ borderRadius: 0, px: 1.3 }}
               >
@@ -788,12 +1019,12 @@ const handleBuyNow = async () => {
                 "&:hover": { bgcolor: "#000", boxShadow: "none" },
               }}
               onClick={handleAddToCart}
-              disabled={product.stock === 0}
+              disabled={activeStock === 0}
             >
-            Add To Cart  {/* {product.stock === 0 ? "Out of Stock" : "Add To Cart"} */}
+              Add To Cart
             </LoadingButton>
 
-          <LoadingButton
+            <LoadingButton
               variant="outlined"
               size="large"
               sx={{
@@ -810,12 +1041,13 @@ const handleBuyNow = async () => {
                   borderColor: "#111",
                   bgcolor: "#f8fafc",
                 },
-              }}loading={buyNowLoading}
+              }}
+              loading={buyNowLoading}
               onClick={handleBuyNow}
-              disabled={product.stock === 0}
+              disabled={activeStock === 0}
             >
-             {product.stock === 0 ? "Out of Stock" : "Buy Now"}
-        </LoadingButton>
+              {activeStock === 0 ? "Out of Stock" : "Buy Now"}
+            </LoadingButton>
           </Stack>
 
           {/* ================= TRUST BADGES ================= */}
@@ -851,9 +1083,12 @@ const handleBuyNow = async () => {
                   <LocalShippingOutlinedIcon sx={{ fontSize: 18 }} />
                 </Box>
                 <Typography
-                  sx={{ fontSize: 13.5, fontWeight: 500, color: "#334155" }}
+                  sx={{ fontSize: 13.5, fontWeight: 500, color: "#334155", textAlign: "center" }}
                 >
-                  Free Delivery
+                  {product.freeShipping ? "Free Delivery" : "Fast Delivery"}
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: "#94a3b8" }}>
+                  in {product.estimatedDeliveryDays || 5} days
                 </Typography>
               </Stack>
 
@@ -907,11 +1142,85 @@ const handleBuyNow = async () => {
                 <Typography
                   sx={{ fontSize: 13.5, fontWeight: 500, color: "#334155" }}
                 >
-                  Easy Returns
+                  7 Days Return
                 </Typography>
               </Stack>
             </Stack>
           </Paper>
+
+          {/* ================= PRODUCT DETAILS ================= */}
+          {(product.brand ||
+            product.fit ||
+            product.pattern ||
+            product.occasion ||
+            product.neckType ||
+            product.sleeveType ||
+            product.countryOfOrigin ||
+            product.collection ||
+            product.careInstructions ||
+            hasDimensions ||
+            product.weight > 0) && (
+            <Paper
+              elevation={0}
+              sx={{ mt: 3, p: { xs: 2, sm: 3 }, borderRadius: 3, border: "1px solid #eef0f3" }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1.2} mb={1.5}>
+                <InfoOutlinedIcon sx={{ fontSize: 19, color: "#4f46e5" }} />
+                <Typography sx={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>
+                  Product Details
+                </Typography>
+              </Stack>
+
+              <DetailRow label="Brand" value={product.brand} />
+              <DetailRow label="Collection" value={product.collection} />
+              <DetailRow label="Fit" value={product.fit} />
+              <DetailRow label="Pattern" value={product.pattern} />
+              <DetailRow label="Occasion" value={product.occasion} />
+              <DetailRow label="Neck Type" value={product.neckType} />
+              <DetailRow label="Sleeve Type" value={product.sleeveType} />
+              <DetailRow label="Country of Origin" value={product.countryOfOrigin} />
+              <DetailRow
+                label="Weight"
+                value={product.weight > 0 ? `${product.weight} g` : null}
+              />
+              <DetailRow
+                label="Dimensions (L × W × H)"
+                value={
+                  hasDimensions
+                    ? `${dimensions.length || 0} × ${dimensions.width || 0} × ${dimensions.height || 0} cm`
+                    : null
+                }
+              />
+
+              {product.careInstructions && (
+                <Box sx={{ pt: 1.5, mt: 1, borderTop: "1px solid #f1f5f9" }}>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: "#64748b", mb: 0.5 }}>
+                    Care Instructions
+                  </Typography>
+                  <Typography sx={{ fontSize: 13.5, color: "#334155", lineHeight: 1.7 }}>
+                    {product.careInstructions}
+                  </Typography>
+                </Box>
+              )}
+            </Paper>
+          )}
+
+          {/* ================= TAGS ================= */}
+          {product.tags?.length > 0 && (
+            <Box mt={2.5}>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {product.tags.map((tag) => (
+                  <Chip
+                    key={tag}
+                    label={`#${tag}`}
+                    size="small"
+                    variant="outlined"
+                    sx={{ borderColor: "#e2e8f0", color: "#94a3b8", fontSize: 11.5 }}
+                  />
+                ))}
+              </Stack>
+            </Box>
+          )}
 
           {/* ================= WRITE A REVIEW ================= */}
           <Paper
@@ -965,7 +1274,6 @@ const handleBuyNow = async () => {
               </Box>
             </Stack>
 
-            {/* Already reviewed banner */}
             {hasReviewed && !editingReviewId && (
               <Box
                 sx={{
@@ -1118,7 +1426,6 @@ const handleBuyNow = async () => {
 
           {/* ================= REVIEWS LIST ================= */}
           <Box mt={5}>
-            {/* ===== Header with rating summary ===== */}
             <Stack
               direction={{ xs: "column", sm: "row" }}
               justifyContent="space-between"
@@ -1229,7 +1536,6 @@ const handleBuyNow = async () => {
                           spacing={1}
                         >
                           <Box>
-                            {/* User Name */}
                             <Stack
                               direction="row"
                               alignItems="center"
@@ -1270,7 +1576,6 @@ const handleBuyNow = async () => {
                               )}
                             </Stack>
 
-                            {/* Review Date */}
                             <Stack
                               direction="row"
                               alignItems="center"
@@ -1299,7 +1604,6 @@ const handleBuyNow = async () => {
                             </Stack>
                           </Box>
 
-                          {/* Rating */}
                           <Box
                             sx={{
                               display: "inline-flex",

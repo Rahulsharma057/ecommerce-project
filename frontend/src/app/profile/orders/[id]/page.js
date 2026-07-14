@@ -10,7 +10,6 @@ import {
   Box,
   Chip,
   Button,
-  Grid,
   Avatar,
   Dialog,
   DialogTitle,
@@ -19,6 +18,13 @@ import {
   TextField,
   Checkbox,
 } from "@mui/material";
+import {
+  TimelineItem,
+  TimelineSeparator,
+  TimelineDot,
+  TimelineConnector,
+  TimelineContent,
+} from "@mui/lab";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -44,17 +50,21 @@ const STEP_ICONS = {
   Delivered: HomeOutlinedIcon,
   Requested: ShoppingBagOutlinedIcon,
   Approved: CheckIcon,
-  "Picked Up": LocalShippingOutlinedIcon,
   Refunded: HomeOutlinedIcon,
 };
 
-const RETURN_STEPS = ["Requested", "Approved", "Picked Up", "Refunded"];
+const PICKUP_STATUS_STYLES = {
+  NotPicked: { bg: "#f4f4f5", color: "#52525b", label: "Not Picked Up Yet" },
+  PickupScheduled: { bg: "#eff6ff", color: "#1d4ed8", label: "Pickup Scheduled" },
+  Picked: { bg: "#fefce8", color: "#a16207", label: "Picked Up" },
+  InTransit: { bg: "#fefce8", color: "#a16207", label: "In Transit" },
+  Received: { bg: "#f0fdf4", color: "#15803d", label: "Received by us" },
+};
 
-const RETURN_ITEM_STATUS_STYLES = {
-  Requested: { bg: "#fefce8", color: "#a16207" },
-  Approved: { bg: "#eff6ff", color: "#1d4ed8" },
-  Rejected: { bg: "#fef2f2", color: "#b91c1c" },
-  Refunded: { bg: "#f0fdf4", color: "#15803d" },
+const REFUND_STATUS_STYLES = {
+  None: { bg: "#f4f4f5", color: "#52525b", label: "Not Started" },
+  Pending: { bg: "#fffbeb", color: "#d97706", label: "Refund Pending" },
+  Completed: { bg: "#f0fdf4", color: "#15803d", label: "Refund Completed" },
 };
 
 // Consistent section heading used across the page
@@ -101,7 +111,10 @@ export default function OrderDetailsPage() {
         },
       });
 
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {}
 
       if (!res.ok) {
         toast.error(data.message || "Failed to load order");
@@ -110,7 +123,7 @@ export default function OrderDetailsPage() {
 
       setOrder(data);
     } catch (err) {
-      toast.error("Something went wrong");
+      toast.error(err.message || "Something went wrong");
     }
   };
 
@@ -128,7 +141,10 @@ export default function OrderDetailsPage() {
         }),
       });
 
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {}
 
       if (res.ok) {
         toast.success(data.message || "Order cancelled successfully");
@@ -140,11 +156,15 @@ export default function OrderDetailsPage() {
         toast.error(data.message || "Failed to cancel order");
       }
     } catch (err) {
-      toast.error("Something went wrong");
+      toast.error(err.message || "Something went wrong");
     }
   };
 
   const handleReturnOrder = async () => {
+    if (returnImages.length === 0) {
+      toast.error("Please upload at least one return image");
+      return;
+    }
     try {
       const formData = new FormData();
       formData.append("description", returnDescription);
@@ -159,7 +179,10 @@ export default function OrderDetailsPage() {
         body: formData,
       });
 
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {}
 
       if (res.ok) {
         toast.success(data.message || "Return request submitted successfully");
@@ -172,47 +195,45 @@ export default function OrderDetailsPage() {
         toast.error(data.message || "Failed to submit return request");
       }
     } catch (err) {
-      toast.error("Something went wrong");
+      toast.error(err.message || "Something went wrong");
     }
   };
 
   if (!order) return <Container sx={{ py: 5 }}>Loading...</Container>;
 
-  // Items that were fully cancelled — never eligible for anything again
-  const cancelledIds = (order.cancelledItems || []).map((item) =>
-    item.itemId.toString(),
-  );
+  // Item ids that are NOT eligible for a new return: cancelled ones,
+  // or ones already inside an active/completed return batch. Items from
+  // a REJECTED batch are excluded from this block-list, so the customer
+  // can try returning them again.
+  const ineligibleIds = new Set([
+    ...(order.cancelledItems?.map((i) => i.itemId.toString()) || []),
+    ...(order.returns || [])
+      .filter((r) => r.status !== "Rejected")
+      .flatMap((r) => r.items.map((i) => i.itemId.toString())),
+  ]);
 
-  // Items that already have an ACTIVE (Requested/Approved) or COMPLETED
-  // (Refunded) return on file. Only a "Rejected" return frees an item up
-  // again, so those are intentionally excluded from this block-list.
- // Item ids that are NOT eligible for a new return: cancelled ones,
-// or ones already inside an active/completed return batch. Items from
-// a REJECTED batch are excluded from this block-list, so the customer
-// can try returning them again.
-const ineligibleIds = new Set([
-  ...(order.cancelledItems?.map((i) => i.itemId.toString()) || []),
-  ...(order.returns || [])
-    .filter((r) => r.status !== "Rejected")
-    .flatMap((r) => r.items.map((i) => i.itemId.toString())),
-]);
+  const returnableItems =
+    order.items?.filter((item) => !ineligibleIds.has(item._id.toString())) ||
+    [];
+  const cancellableItems =
+    order.items?.filter(
+      (item) =>
+        !order.cancelledItems
+          ?.map((i) => i.itemId.toString())
+          .includes(item._id.toString()),
+    ) || [];
 
-const returnableItems = order.items?.filter((item) => !ineligibleIds.has(item._id.toString())) || [];
-const cancellableItems = order.items?.filter(
-  (item) => !order.cancelledItems?.map((i) => i.itemId.toString()).includes(item._id.toString()),
-) || [];
+  const canReturn = order.status === "Delivered" && returnableItems.length > 0;
+  const canCancel = order.status === "Pending" && cancellableItems.length > 0;
 
-const canReturn = order.status === "Delivered" && returnableItems.length > 0;
-const canCancel = order.status === "Pending" && cancellableItems.length > 0;
-
-const openReturnDialog = () => {
-  if (returnableItems.length === 1) {
-    setSelectedReturnItems([returnableItems[0]._id]);
-  } else {
-    setSelectedReturnItems([]);
-  }
-  setReturnOpen(true);
-};
+  const openReturnDialog = () => {
+    if (returnableItems.length === 1) {
+      setSelectedReturnItems([returnableItems[0]._id]);
+    } else {
+      setSelectedReturnItems([]);
+    }
+    setReturnOpen(true);
+  };
   const openCancelDialog = () => {
     if (cancellableItems.length === 1) {
       setSelectedCancelItems([cancellableItems[0]._id]);
@@ -365,11 +386,7 @@ const openReturnDialog = () => {
                           : isActive
                             ? "#18181b"
                             : "#a1a1aa",
-                        fontWeight: isCompletedFlow
-                          ? 600
-                          : isCurrent
-                            ? 700
-                            : 600,
+                        fontWeight: isCompletedFlow ? 600 : isCurrent ? 700 : 600,
                         textAlign: "center",
                         whiteSpace: "nowrap",
                       }}
@@ -406,10 +423,10 @@ const openReturnDialog = () => {
     );
   }
 
-  // "Active batch" = the return status shown in the tracker above — i.e.
-  // items that are currently Requested/Approved (or the most recent
-  // decision if nothing is currently in-flight).
-  const hasReturnHistory = (order.returnItems || []).length > 0;
+  // Fixed: this used to check the no-longer-existent order.returnItems,
+  // which meant it was always false and the "Return More Item(s)" button
+  // label never appeared even when a return history existed.
+  const hasReturnHistory = (order.returns || []).length > 0;
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 5 } }}>
@@ -468,31 +485,10 @@ const openReturnDialog = () => {
         variant="outlined"
         sx={{ p: { xs: 2.5, sm: 4 }, borderRadius: 3, borderColor: "#e4e4e7" }}
       >
-        {/* CANCELLED BANNER */}
-        {order.status === "Cancelled" && (
-          <Box
-            sx={{
-              mb: 3,
-              p: 1.5,
-              borderRadius: 2,
-              bgcolor: "#fef2f2",
-              border: "1px solid #fecaca",
-            }}
-          >
-            <Typography
-              sx={{ fontSize: 13.5, color: "#dc2626", fontWeight: 600 }}
-            >
-              Cancel Reason: {order.cancelReason || "Not specified"}
-            </Typography>
-          </Box>
-        )}
-
         {/* ORDER META: date + payment method */}
         <Stack direction="row" flexWrap="wrap" gap={1.5} mb={3}>
           <Stack direction="row" alignItems="center" spacing={0.75}>
-            <CalendarMonthOutlinedIcon
-              sx={{ fontSize: 17, color: "#a1a1aa" }}
-            />
+            <CalendarMonthOutlinedIcon sx={{ fontSize: 17, color: "#a1a1aa" }} />
             <Typography sx={{ fontSize: 13, color: "#71717a" }}>
               Placed on{" "}
               {order.createdAt
@@ -531,6 +527,47 @@ const openReturnDialog = () => {
           negativeStatuses={["Cancelled"]}
           negativeLabel="Order Cancelled"
         />
+
+        {/* CANCELLED BANNER */}
+        {order.status === "Cancelled" && (
+          <Box
+            sx={{
+              mb: 3,
+              p: 2,
+              borderRadius: 2,
+              bgcolor: "#fef2f2",
+              border: "1px solid #fecaca",
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "#991b1b",
+                textTransform: "uppercase",
+                letterSpacing: 0.3,
+                mb: 0.5,
+              }}
+            >
+              {order.cancelledBy === "admin"
+                ? "Message from our team"
+                : "Cancellation reason"}
+            </Typography>
+            <Typography sx={{ fontSize: 14, color: "#dc2626", fontWeight: 500 }}>
+              {order.cancelReason || "No reason provided"}
+            </Typography>
+            {order.cancelledAt && (
+              <Typography sx={{ fontSize: 12, color: "#b91c1c", mt: 0.5 }}>
+                Cancelled on{" "}
+                {new Date(order.cancelledAt).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </Typography>
+            )}
+          </Box>
+        )}
 
         {/* CANCEL / RETURN ACTIONS */}
         {(canCancel || canReturn) && (
@@ -582,9 +619,7 @@ const openReturnDialog = () => {
 
         {/* ADDRESS */}
         <Box>
-          <SectionHeading icon={LocationOnIcon}>
-            Shipping Address
-          </SectionHeading>
+          <SectionHeading icon={LocationOnIcon}>Shipping Address</SectionHeading>
 
           {order.shippingAddress ? (
             <Box
@@ -596,9 +631,7 @@ const openReturnDialog = () => {
                 bgcolor: "#fafafa",
               }}
             >
-              <Typography
-                sx={{ fontWeight: 600, fontSize: 14, color: "#18181b" }}
-              >
+              <Typography sx={{ fontWeight: 600, fontSize: 14, color: "#18181b" }}>
                 {order.shippingAddress?.fullName || "-"}
               </Typography>
               <Typography sx={{ fontSize: 13.5, color: "#52525b", mt: 0.5 }}>
@@ -618,73 +651,284 @@ const openReturnDialog = () => {
             </Typography>
           )}
         </Box>
+<Paper
+  elevation={0}
+  sx={{
+    p: 3,
+    mt: 2,
+    borderRadius: 3,
+    border: "1px solid #e5e7eb",
+  }}
+>
+  <Typography variant="h6" fontWeight={700} mb={2}>
+    Payment Details
+  </Typography>
 
+  <Stack spacing={1.5}>
+
+    <Box display="flex" justifyContent="space-between">
+      <Typography color="text.secondary">
+        Payment Method
+      </Typography>
+
+      <Typography fontWeight={600}>
+        {order.paymentMethod}
+      </Typography>
+    </Box>
+
+    <Box display="flex" justifyContent="space-between">
+      <Typography color="text.secondary">
+        Payment Status
+      </Typography>
+
+      <Chip
+        label={order.paymentStatus}
+        color={
+          order.paymentStatus === "Paid"
+            ? "success"
+            : order.paymentStatus === "Failed"
+            ? "error"
+            : order.paymentStatus === "Refunded"
+            ? "warning"
+            : "default"
+        }
+      />
+    </Box>
+
+    <Box display="flex" justifyContent="space-between">
+      <Typography color="text.secondary">
+        Amount Paid
+      </Typography>
+
+      <Typography fontWeight={700}>
+        ₹{order.totalAmount}
+      </Typography>
+    </Box>
+
+    <Box display="flex" justifyContent="space-between">
+      <Typography color="text.secondary">
+        Paid On
+      </Typography>
+
+      <Typography>
+        {order.paymentVerifiedAt
+          ? new Date(order.paymentVerifiedAt).toLocaleString("en-IN")
+          : "--"}
+      </Typography>
+    </Box>
+
+    {order.paymentChannel && (
+      <Box display="flex" justifyContent="space-between">
+        <Typography color="text.secondary">
+          Payment Mode
+        </Typography>
+
+        <Typography>
+          {order.paymentChannel.toUpperCase()}
+        </Typography>
+      </Box>
+    )}
+
+    {order.razorpayPaymentId && (
+      <Box display="flex" justifyContent="space-between">
+        <Typography color="text.secondary">
+          Transaction ID
+        </Typography>
+
+        <Typography fontSize={13}>
+          {order.razorpayPaymentId}
+        </Typography>
+      </Box>
+    )}
+
+    {
+  order.paymentStatus === "Paid" && (
+    <TimelineItem>
+      <TimelineSeparator>
+        <TimelineDot color="success" />
+        <TimelineConnector />
+      </TimelineSeparator>
+
+      <TimelineContent>
+        <Typography fontWeight={600}>
+          Payment Successful
+        </Typography>
+
+        <Typography variant="body2">
+          ₹{order.totalAmount} received successfully.
+        </Typography>
+
+        <Typography variant="caption">
+          {new Date(order.paymentVerifiedAt).toLocaleString("en-IN")}
+        </Typography>
+      </TimelineContent>
+    </TimelineItem>
+  )
+}
+
+{
+  order.paymentStatus === "Refunded" && (
+    <Alert severity="success" sx={{ mt: 2 }}>
+      ₹{order.refundedAmount} has been refunded to your original payment method.
+    </Alert>
+  )
+}
+
+  </Stack>
+</Paper>
         <Divider sx={{ my: 3, borderColor: "#f4f4f5" }} />
 
         {/* PRODUCTS */}
-        <SectionHeading>Products ({order.items?.length || 0})</SectionHeading>
+{/* PRODUCTS */}
+<SectionHeading>Products ({order.items?.length || 0})</SectionHeading>
 
-        <Stack spacing={1.5}>
-          {(order.items || []).map((item) => (
-            <Box
-              key={item._id}
-              sx={{
-                p: 1.5,
-                borderRadius: 2,
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-                border: "1px solid #f4f4f5",
-              }}
-            >
-              <Avatar
-                src={item.image}
-                variant="rounded"
-                sx={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 2,
-                  bgcolor: "#f4f4f5",
-                  border: "1px solid #e4e4e7",
-                  flexShrink: 0,
-                }}
-              >
-                <ImageOutlinedIcon sx={{ fontSize: 20, color: "#a1a1aa" }} />
-              </Avatar>
+<Stack spacing={1.5}>
+  {(order.items || []).map((item) => {
+    const product = item.productId; // populated product object (may be null if deleted)
 
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography
-                  noWrap
-                  sx={{ fontWeight: 600, fontSize: 14, color: "#18181b" }}
-                >
-                  {item.name}
-                </Typography>
-                <Typography sx={{ fontSize: 12.5, color: "#a1a1aa", mt: 0.3 }}>
-                  Qty: {item.quantity}
-                </Typography>
-              </Box>
+    return (
+      <Box
+        key={item._id}
+        sx={{
+          p: 1.5,
+          borderRadius: 2,
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          border: "1px solid #f4f4f5",
+          flexWrap: "wrap",
+        }}
+      >
+        <Avatar
+          src={item.image}
+          variant="rounded"
+          sx={{
+            width: 56,
+            height: 56,
+            borderRadius: 2,
+            bgcolor: "#f4f4f5",
+            border: "1px solid #e4e4e7",
+            flexShrink: 0,
+          }}
+        >
+          <ImageOutlinedIcon sx={{ fontSize: 20, color: "#a1a1aa" }} />
+        </Avatar>
 
-              <Typography
-                sx={{
-                  fontWeight: 700,
-                  fontSize: 14.5,
-                  color: "#18181b",
-                  flexShrink: 0,
-                  textAlign: "right",
-                }}
-              >
-                ₹{(item.price * item.quantity).toLocaleString()}
-              </Typography>
-            </Box>
-          ))}
+        <Box sx={{ flex: 1, minWidth: 200 }}>
+          <Typography noWrap sx={{ fontWeight: 600, fontSize: 14, color: "#18181b" }}>
+            {item.name}
+          </Typography>
 
-          {(!order.items || order.items.length === 0) && (
-            <Typography sx={{ fontSize: 13.5, color: "#a1a1aa" }}>
-              No products found for this order.
+          {/* Brand · Category · Sub-category — from the populated product */}
+          {product && (product.brand || product.category) && (
+            <Typography sx={{ fontSize: 11.5, color: "#a1a1aa", mt: 0.2 }}>
+              {[product.brand, product.category, product.subCategory].filter(Boolean).join(" · ")}
             </Typography>
           )}
-        </Stack>
 
+          {/* Fabric */}
+          {product?.fabric && (
+            <Typography sx={{ fontSize: 11.5, color: "#a1a1aa" }}>
+              Fabric: {product.fabric}
+            </Typography>
+          )}
+
+          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
+            {/* Selected color/size — only shows once the order actually
+                stores what the customer picked (see note below the code) */}
+            {item.color && (
+              <Chip
+                label={`Color: ${item.color}`}
+                size="small"
+                sx={{ height: 20, fontSize: 11, bgcolor: "#f4f4f5", color: "#52525b" }}
+              />
+            )}
+            {item.size && (
+              <Chip
+                label={`Size: ${item.size}`}
+                size="small"
+                sx={{ height: 20, fontSize: 11, bgcolor: "#f4f4f5", color: "#52525b" }}
+              />
+            )}
+            <Chip
+              label={`Qty: ${item.quantity}`}
+              size="small"
+              sx={{ height: 20, fontSize: 11, bgcolor: "#f4f4f5", color: "#52525b" }}
+            />
+            {product?.sku && (
+              <Chip
+                label={`SKU: ${product.sku}`}
+                size="small"
+                variant="outlined"
+                sx={{ height: 20, fontSize: 11, borderColor: "#e4e4e7", color: "#71717a" }}
+              />
+            )}
+          </Stack>
+        </Box>
+
+        <Typography
+          sx={{
+            fontWeight: 700,
+            fontSize: 14.5,
+            color: "#18181b",
+            flexShrink: 0,
+            textAlign: "right",
+          }}
+        >
+          ₹{(item.price * item.quantity).toLocaleString()}
+        </Typography>
+      </Box>
+    );
+  })}
+
+  {(!order.items || order.items.length === 0) && (
+    <Typography sx={{ fontSize: 13.5, color: "#a1a1aa" }}>
+      No products found for this order.
+    </Typography>
+  )}
+</Stack>
+        <Divider sx={{ my: 3, borderColor: "#f4f4f5" }} />
+
+        {/* PRICE BREAKDOWN */}
+        <Box>
+          <Typography sx={{ fontWeight: 700, fontSize: 15, color: "#18181b", mb: 1.5 }}>
+            Price Details
+          </Typography>
+
+          <Stack spacing={1}>
+            <Stack direction="row" justifyContent="space-between">
+              <Typography sx={{ fontSize: 13.5, color: "#71717a" }}>Subtotal</Typography>
+              <Typography sx={{ fontSize: 13.5, color: "#27272a" }}>
+                ₹{(order.subtotal || 0).toLocaleString()}
+              </Typography>
+            </Stack>
+
+            {order.couponCode && order.discount > 0 && (
+              <Stack direction="row" justifyContent="space-between">
+                <Typography sx={{ fontSize: 13.5, color: "#71717a" }}>
+                  Coupon ({order.couponCode.code || "Applied"})
+                </Typography>
+                <Typography sx={{ fontSize: 13.5, color: "#16a34a", fontWeight: 600 }}>
+                  −₹{order.discount.toLocaleString()}
+                </Typography>
+              </Stack>
+            )}
+
+            <Stack direction="row" justifyContent="space-between">
+              <Typography sx={{ fontSize: 13.5, color: "#71717a" }}>Shipping</Typography>
+              <Typography sx={{ fontSize: 13.5, color: "#27272a" }}>
+                {order.shippingFee > 0 ? `₹${order.shippingFee}` : "Free"}
+              </Typography>
+            </Stack>
+
+            <Stack direction="row" justifyContent="space-between">
+              <Typography sx={{ fontSize: 13.5, color: "#71717a" }}>Tax</Typography>
+              <Typography sx={{ fontSize: 13.5, color: "#27272a" }}>
+                ₹{(order.tax || 0).toLocaleString()}
+              </Typography>
+            </Stack>
+          </Stack>
+        </Box>
         <Divider sx={{ my: 3, borderColor: "#f4f4f5" }} />
 
         {/* TOTAL */}
@@ -702,12 +946,8 @@ const openReturnDialog = () => {
           }}
         >
           <Box>
-            <Typography sx={{ fontSize: 12.5, color: "#71717a" }}>
-              Order Total
-            </Typography>
-            <Typography
-              sx={{ fontSize: 20, fontWeight: 700, color: "#18181b" }}
-            >
+            <Typography sx={{ fontSize: 12.5, color: "#71717a" }}>Order Total</Typography>
+            <Typography sx={{ fontSize: 20, fontWeight: 700, color: "#18181b" }}>
               ₹{(order.totalAmount || 0).toLocaleString()}
             </Typography>
             {order.refundedAmount > 0 && (
@@ -719,10 +959,7 @@ const openReturnDialog = () => {
 
           <Stack direction="row" alignItems="center" spacing={0.75}>
             <ReceiptLongOutlinedIcon
-              sx={{
-                fontSize: 17,
-                color: order.invoiceNumber ? "#16a34a" : "#a1a1aa",
-              }}
+              sx={{ fontSize: 17, color: order.invoiceNumber ? "#16a34a" : "#a1a1aa" }}
             />
             <Typography
               sx={{
@@ -731,9 +968,7 @@ const openReturnDialog = () => {
                 fontWeight: 500,
               }}
             >
-              {order.invoiceNumber
-                ? "Invoice Generated"
-                : "Invoice Not Generated"}
+              {order.invoiceNumber ? "Invoice Generated" : "Invoice Not Generated"}
             </Typography>
           </Stack>
         </Box>
@@ -758,23 +993,79 @@ const openReturnDialog = () => {
                   border: "1px solid #e5e7eb",
                   borderRadius: 2,
                   bgcolor: "#fafafa",
+                  flexWrap: "wrap",
                 }}
               >
                 <Avatar
                   src={item.image}
                   variant="rounded"
+                  imgProps={{
+                    onError: (e) => {
+                      e.target.src = "/placeholder.png";
+                    },
+                  }}
                   sx={{ width: 65, height: 65, borderRadius: 2 }}
                 />
 
-                <Box flex={1}>
+                <Box flex={1} minWidth={180}>
                   <Typography fontWeight={600}>{item.name}</Typography>
                   <Typography variant="body2" color="text.secondary">
                     Qty : {item.quantity}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    ₹{item.price}
+                    ₹{item.price.toLocaleString()}
                   </Typography>
                 </Box>
+
+                {item.reason && (
+                  <Box sx={{ mt: 1, minWidth: 180 }}>
+                    <Typography
+                      sx={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#991b1b",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {item.cancelledBy === "admin"
+                        ? "Message from our team"
+                        : "Cancellation Reason"}
+                    </Typography>
+
+                    <Typography sx={{ fontSize: 13, color: "#dc2626" }}>
+                      {item.reason}
+                    </Typography>
+                    {item.cancelledAt && (
+                      <Typography sx={{ fontSize: 12, color: "#9f1239", mt: 0.5 }}>
+                        Cancelled on{" "}
+                        {new Date(item.cancelledAt).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+
+                {item.adminNote && (
+                  <Box sx={{ mt: 1, minWidth: 180 }}>
+                    <Typography
+                      sx={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#2563eb",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Admin Note
+                    </Typography>
+
+                    <Typography sx={{ fontSize: 13, color: "#1d4ed8" }}>
+                      {item.adminNote}
+                    </Typography>
+                  </Box>
+                )}
 
                 <Chip label="Cancelled" color="error" sx={{ fontWeight: 600 }} />
               </Box>
@@ -783,278 +1074,214 @@ const openReturnDialog = () => {
         </Box>
       )}
 
-      {/* RETURN HISTORY — every item that's ever had a return request,
-          each showing its OWN status (not one blanket status for all) */}
-   {/*    {hasReturnHistory && (
-        <Paper
-          variant="outlined"
-          sx={{
-            p: { xs: 2.5, sm: 3 },
-            mt: 3,
-            borderRadius: 3,
-            borderColor: "#e4e4e7",
-          }}
-        >
-          <StepTracker
-            title="Return Status"
-            status={order.returnStatus}
-            steps={RETURN_STEPS}
-            negativeStatuses={["Rejected", "Cancelled"]}
-            negativeLabel={`Return ${order.returnStatus}`}
-          />
+      {/* RETURN HISTORY — each return is its own independent card, showing
+          exactly what stage it's at (requested/approved/rejected, pickup
+          progress, and refund status + amount) */}
+      {hasReturnHistory && (
+        <Stack spacing={2} mt={3}>
+          {order.returns.map((ret, idx) => {
+            const pickupStyle =
+              PICKUP_STATUS_STYLES[ret.pickupStatus] || PICKUP_STATUS_STYLES.NotPicked;
+            const refundStyle =
+              REFUND_STATUS_STYLES[ret.refundStatus] || REFUND_STATUS_STYLES.None;
 
-          <Divider sx={{ my: 3, borderColor: "#f4f4f5" }} />
+            return (
+              <Paper
+                key={ret._id}
+                variant="outlined"
+                sx={{ p: { xs: 2.5, sm: 3 }, borderRadius: 3, borderColor: "#e4e4e7" }}
+              >
+                <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "#71717a", mb: 2 }}>
+                  Return #{order.returns.length - idx} · Requested on{" "}
+                  {new Date(ret.requestedAt).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </Typography>
 
-          <Box mt={1}>
-            <Typography variant="h6" fontWeight={700} mb={2} color="text.primary">
-              Returned Item(s)
-            </Typography>
+                <StepTracker
+                  title="Return Status"
+                  status={ret.status}
+                  steps={["Requested", "Approved", "Refunded"]}
+                  negativeStatuses={["Rejected"]}
+                  negativeLabel="Return Rejected"
+                />
 
-            <Stack spacing={2} mb={2}>
-              {order.returnItems.map((item, i) => {
-                const style =
-                  RETURN_ITEM_STATUS_STYLES[item.status] || {
-                    bg: "#f4f4f5",
-                    color: "#52525b",
-                  };
-                return (
-                  <Box
-                    key={`${item.itemId}-${i}`}
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      p: 2,
-                      borderRadius: 3,
-                      border: "1px solid",
-                      borderColor: "#e5e7eb",
-                      bgcolor: "#fff",
-                    }}
-                  >
-                    <Stack direction="row" spacing={2} alignItems="center">
+                {/* Pickup progress — only meaningful once approved */}
+                {ret.status === "Approved" && (
+                  <Box sx={{ mt: 2, mb: 1 }}>
+                    <Typography
+                      sx={{
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        color: "#a1a1aa",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.3,
+                        mb: 0.75,
+                      }}
+                    >
+                      Pickup
+                    </Typography>
+                    <Chip
+                      label={pickupStyle.label}
+                      size="small"
+                      sx={{ fontWeight: 700, bgcolor: pickupStyle.bg, color: pickupStyle.color }}
+                    />
+                  </Box>
+                )}
+
+                <Divider sx={{ my: 3, borderColor: "#f4f4f5" }} />
+
+                <Stack spacing={1.5} mb={2}>
+                  {ret.items.map((item) => (
+                    <Box
+                      key={item.itemId}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 2,
+                        border: "1px solid #f4f4f5",
+                      }}
+                    >
                       <Avatar
                         src={item.image}
                         variant="rounded"
                         sx={{
-                          width: 64,
-                          height: 64,
+                          width: 48,
+                          height: 48,
                           borderRadius: 2,
-                          border: "1px solid #e5e7eb",
+                          bgcolor: "#f4f4f5",
+                          border: "1px solid #e4e4e7",
                         }}
-                      />
-
-                      <Box>
-                        <Typography fontWeight={700} fontSize={15}>
+                      >
+                        <ImageOutlinedIcon sx={{ fontSize: 18, color: "#a1a1aa" }} />
+                      </Avatar>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography
+                          noWrap
+                          sx={{ fontWeight: 600, fontSize: 13.5, color: "#18181b" }}
+                        >
                           {item.name}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary" mt={0.5}>
-                          Quantity : {item.quantity}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Price : ₹{item.price}
+                        <Typography sx={{ fontSize: 12, color: "#a1a1aa" }}>
+                          Qty: {item.quantity}
                         </Typography>
                       </Box>
-                    </Stack>
+                      <Typography sx={{ fontWeight: 700, fontSize: 14, color: "#18181b" }}>
+                        ₹{item.total?.toLocaleString()}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
 
-                    <Chip
-                      label={item.status}
+                {ret.reason && (
+                  <Typography sx={{ fontSize: 13.5, color: "#52525b", mb: 1 }}>
+                    Reason: {ret.reason}
+                  </Typography>
+                )}
+                {ret.adminNote && (
+                  <Typography sx={{ fontSize: 13.5, color: "#71717a", mb: 1 }}>
+                    Admin Note: {ret.adminNote}
+                  </Typography>
+                )}
+
+                {/* Images the customer originally submitted with this return */}
+                {ret.images?.length > 0 && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <Typography
                       sx={{
-                        fontWeight: 700,
-                        minWidth: 100,
-                        bgcolor: style.bg,
-                        color: style.color,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        color: "#a1a1aa",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.3,
+                        mb: 1,
                       }}
-                    />
+                    >
+                      Images You Submitted
+                    </Typography>
+                    <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+                      {ret.images.map((img, index) => (
+                        <Box
+                          key={index}
+                          component="img"
+                          src={img}
+                          onClick={() => window.open(img, "_blank")}
+                          sx={{
+                            width: 84,
+                            height: 84,
+                            objectFit: "cover",
+                            borderRadius: 2,
+                            border: "1px solid #e4e4e7",
+                            cursor: "pointer",
+                          }}
+                        />
+                      ))}
+                    </Stack>
                   </Box>
-                );
-              })}
-            </Stack>
-          </Box>
+                )}
 
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Typography
-                sx={{
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  color: "#a1a1aa",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
-                }}
-              >
-                Reason
-              </Typography>
-              <Typography sx={{ fontSize: 14, color: "#27272a", mt: 0.5 }}>
-                {order.returnReason || "-"}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Typography
-                sx={{
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  color: "#a1a1aa",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
-                }}
-              >
-                Admin Note
-              </Typography>
-              <Typography sx={{ fontSize: 14, color: "#27272a", mt: 0.5 }}>
-                {order.adminNote || "-"}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Typography
-                sx={{
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  color: "#a1a1aa",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
-                  mb: 0.75,
-                }}
-              >
-                Pickup Status
-              </Typography>
-              <Chip
-                label={order.returnPickupStatus || "NotPicked"}
-                size="small"
-                sx={{
-                  fontWeight: 600,
-                  fontSize: 12,
-                  bgcolor:
-                    order.returnPickupStatus === "Received"
-                      ? "#f0fdf4"
-                      : "#fffbeb",
-                  color:
-                    order.returnPickupStatus === "Received"
-                      ? "#16a34a"
-                      : "#d97706",
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Typography
-                sx={{
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  color: "#a1a1aa",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
-                  mb: 0.75,
-                }}
-              >
-                Refund Status
-              </Typography>
-              <Chip
-                label={order.refundStatus || "None"}
-                size="small"
-                sx={{
-                  fontWeight: 600,
-                  fontSize: 12,
-                  bgcolor:
-                    order.refundStatus === "Completed" ? "#f0fdf4" : "#fffbeb",
-                  color:
-                    order.refundStatus === "Completed" ? "#16a34a" : "#d97706",
-                }}
-              />
-            </Grid>
-          </Grid>
-        </Paper>
-      )} */}
-{/* RETURN HISTORY — each return is its own independent card now */}
-{(order.returns || []).length > 0 && (
-  <Stack spacing={2} mt={3}>
-    {order.returns.map((ret, idx) => (
-      <Paper
-        key={ret._id}
-        variant="outlined"
-        sx={{ p: { xs: 2.5, sm: 3 }, borderRadius: 3, borderColor: "#e4e4e7" }}
-      >
-        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "#71717a", mb: 2 }}>
-          Return #{order.returns.length - idx} · Requested on{" "}
-          {new Date(ret.requestedAt).toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
+                {/* Refund status + amount — shown as soon as pickup is
+                    received, even before the final amount is confirmed, so
+                    the customer knows where things stand rather than only
+                    finding out once it's fully Completed. */}
+                {ret.pickupStatus === "Received" && (
+                  <Box
+                    sx={{
+                      mt: 2,
+                      p: 1.5,
+                      borderRadius: 2,
+                      bgcolor: ret.refundStatus === "Completed" ? "#f0fdf4" : "#fffbeb",
+                      border: "1px solid",
+                      borderColor:
+                        ret.refundStatus === "Completed" ? "#bbf7d0" : "#fde68a",
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
+                      <Chip
+                        label={refundStyle.label}
+                        size="small"
+                        sx={{ fontWeight: 700, bgcolor: refundStyle.bg, color: refundStyle.color }}
+                      />
+                    </Stack>
+                    {ret.refundAmount > 0 && (
+                      <>
+                        <Typography
+                          sx={{
+                            fontSize: 15,
+                            fontWeight: 700,
+                            color:
+                              ret.refundStatus === "Completed" ? "#16a34a" : "#d97706",
+                            mt: 0.75,
+                          }}
+                        >
+                          ₹{ret.refundAmount.toLocaleString()}
+                        </Typography>
+                        <Typography sx={{ fontSize: 11.5, color: "#71717a", mt: 0.3 }}>
+                          {ret.refundTax
+                            ? "Includes applicable tax"
+                            : "Tax not included in this refund"}
+                        </Typography>
+                      </>
+                    )}
+                  </Box>
+                )}
+              </Paper>
+            );
           })}
-        </Typography>
-
-        <StepTracker
-          title="Return Status"
-          status={ret.status}
-          steps={["Requested", "Approved", "Refunded"]}
-          negativeStatuses={["Rejected"]}
-          negativeLabel="Return Rejected"
-        />
-
-        <Divider sx={{ my: 3, borderColor: "#f4f4f5" }} />
-
-        <Stack spacing={1.5} mb={2}>
-          {ret.items.map((item) => (
-            <Box
-              key={item.itemId}
-              sx={{
-                p: 1.5,
-                borderRadius: 2,
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-                border: "1px solid #f4f4f5",
-              }}
-            >
-              <Avatar
-                src={item.image}
-                variant="rounded"
-                sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: "#f4f4f5", border: "1px solid #e4e4e7" }}
-              >
-                <ImageOutlinedIcon sx={{ fontSize: 18, color: "#a1a1aa" }} />
-              </Avatar>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography noWrap sx={{ fontWeight: 600, fontSize: 13.5, color: "#18181b" }}>
-                  {item.name}
-                </Typography>
-                <Typography sx={{ fontSize: 12, color: "#a1a1aa" }}>Qty: {item.quantity}</Typography>
-              </Box>
-              <Typography sx={{ fontWeight: 700, fontSize: 14, color: "#18181b" }}>
-                ₹{item.total?.toLocaleString()}
-              </Typography>
-            </Box>
-          ))}
         </Stack>
-
-        {ret.reason && (
-          <Typography sx={{ fontSize: 13.5, color: "#52525b", mb: 1 }}>Reason: {ret.reason}</Typography>
-        )}
-        {ret.adminNote && (
-          <Typography sx={{ fontSize: 13.5, color: "#71717a" }}>Admin Note: {ret.adminNote}</Typography>
-        )}
-
-        {ret.refundAmount > 0 && (
-          <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: "#16a34a", mt: 1 }}>
-            Refund Amount: ₹{ret.refundAmount.toLocaleString()}
-          </Typography>
-        )}
-      </Paper>
-    ))}
-  </Stack>
-)}
+      )}
 
       {/* CANCEL DIALOG */}
       <Dialog
         open={cancelOpen}
         onClose={() => setCancelOpen(false)}
-        PaperProps={{
-          sx: { borderRadius: 3, p: 1, minWidth: { xs: "90%", sm: 420 } },
-        }}
+        PaperProps={{ sx: { borderRadius: 3, p: 1, minWidth: { xs: "90%", sm: 420 } } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: "#18181b" }}>
-          Cancel Order
-        </DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, color: "#18181b" }}>Cancel Order</DialogTitle>
         <Divider sx={{ my: 0, borderColor: "#f4f4f5" }} />
 
         <DialogContent>
@@ -1082,9 +1309,7 @@ const openReturnDialog = () => {
                         gap: 1,
                         p: 1,
                         borderRadius: 2,
-                        border: checked
-                          ? "1px solid #18181b"
-                          : "1px solid #e5e7eb",
+                        border: checked ? "1px solid #18181b" : "1px solid #e5e7eb",
                         cursor: "pointer",
                       }}
                     >
@@ -1134,12 +1359,7 @@ const openReturnDialog = () => {
               setSelectedCancelItems([]);
             }}
             variant="outlined"
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              borderColor: "#e4e4e7",
-              color: "#27272a",
-            }}
+            sx={{ borderRadius: 2, textTransform: "none", borderColor: "#e4e4e7", color: "#27272a" }}
           >
             Close
           </Button>
@@ -1165,13 +1385,9 @@ const openReturnDialog = () => {
       <Dialog
         open={returnOpen}
         onClose={() => setReturnOpen(false)}
-        PaperProps={{
-          sx: { borderRadius: 3, p: 1, minWidth: { xs: "90%", sm: 420 } },
-        }}
+        PaperProps={{ sx: { borderRadius: 3, p: 1, minWidth: { xs: "90%", sm: 420 } } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: "#18181b" }}>
-          Return Item(s)
-        </DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, color: "#18181b" }}>Return Item(s)</DialogTitle>
 
         <DialogContent>
           <Typography variant="body2" sx={{ color: "#71717a", mb: 2 }}>
@@ -1180,9 +1396,7 @@ const openReturnDialog = () => {
 
           {returnableItems.length > 1 && (
             <Box sx={{ mb: 2.5 }}>
-              <Typography
-                sx={{ fontSize: 13, fontWeight: 700, color: "#18181b", mb: 1 }}
-              >
+              <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#18181b", mb: 1 }}>
                 Select item(s) to return
               </Typography>
 
@@ -1199,9 +1413,7 @@ const openReturnDialog = () => {
                         gap: 1.25,
                         p: 1,
                         borderRadius: 2,
-                        border: checked
-                          ? "1.5px solid #18181b"
-                          : "1px solid #e4e4e7",
+                        border: checked ? "1.5px solid #18181b" : "1px solid #e4e4e7",
                         bgcolor: checked ? "#fafafa" : "#fff",
                         cursor: "pointer",
                         transition: "all .15s ease",
@@ -1262,19 +1474,38 @@ const openReturnDialog = () => {
             }}
           />
 
-          <Button
-            variant="outlined"
+          <Box
             component="label"
             sx={{
               mt: 2,
+              border: "2px dashed #d4d4d8",
               borderRadius: 2,
-              textTransform: "none",
-              borderColor: "#e4e4e7",
-              color: "#27272a",
+              bgcolor: "#fafafa",
+              cursor: "pointer",
+              p: 3,
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: ".2s",
               "&:hover": { borderColor: "#18181b", bgcolor: "#f4f4f5" },
             }}
           >
-            Add Return Images
+            <ImageOutlinedIcon sx={{ fontSize: 42, color: "#71717a", mb: 1 }} />
+
+            <Typography sx={{ fontWeight: 600, color: "#18181b", fontSize: 14 }}>
+              Add Return Images
+            </Typography>
+
+            <Typography sx={{ fontSize: 12, color: "#71717a", mt: 0.5 }}>
+              Upload clear images of the product
+            </Typography>
+
+            <Typography sx={{ fontSize: 11, color: "#a1a1aa", mt: 0.5 }}>
+              JPG, PNG • Max 5 MB each
+            </Typography>
+
             <input
               hidden
               multiple
@@ -1289,28 +1520,136 @@ const openReturnDialog = () => {
                   toast.error("Each image must be less than 5 MB");
                   return;
                 }
+                if (returnImages.length + files.length > 5) {
+                  toast.error("Maximum 5 images allowed");
+                  return;
+                }
+                if (returnDescription.trim().length < 10) {
+                  toast.error("Please describe the issue properly.");
+                }
 
-                setReturnImages(files);
+                setReturnImages((prev) => {
+                  const all = [...prev, ...files];
+
+                  return all.filter(
+                    (file, index, self) =>
+                      index ===
+                      self.findIndex(
+                        (f) =>
+                          f.name === file.name &&
+                          f.size === file.size &&
+                          f.lastModified === file.lastModified,
+                      ),
+                  );
+                });
               }}
             />
-          </Button>
+          </Box>
 
           {returnImages.length > 0 && (
-            <Box sx={{ display: "flex", gap: 1, mt: 2, flexWrap: "wrap" }}>
-              {returnImages.map((img, index) => (
+            <Box sx={{ mt: 2 }}>
+              <Stack direction="row" spacing={2} flexWrap="wrap">
+                {returnImages.map((img, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      position: "relative",
+                      width: 90,
+                      height: 90,
+                      borderRadius: 2,
+                      overflow: "hidden",
+                      border: "1px solid #e5e7eb",
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={URL.createObjectURL(img)}
+                      sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+
+                    <Box
+                      onClick={() =>
+                        setReturnImages((prev) => prev.filter((_, i) => i !== index))
+                      }
+                      sx={{
+                        position: "absolute",
+                        top: 5,
+                        right: 5,
+                        width: 22,
+                        height: 22,
+                        borderRadius: "50%",
+                        bgcolor: "#000000aa",
+                        color: "#fff",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        fontWeight: 700,
+                      }}
+                    >
+                      ×
+                    </Box>
+                  </Box>
+                ))}
+
                 <Box
-                  key={index}
-                  component="img"
-                  src={URL.createObjectURL(img)}
+                  component="label"
                   sx={{
-                    width: 70,
-                    height: 70,
+                    width: 90,
+                    height: 90,
+                    border: "2px dashed #d4d4d8",
                     borderRadius: 2,
-                    objectFit: "cover",
-                    border: "1px solid #e4e4e7",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    bgcolor: "#fafafa",
+                    "&:hover": { bgcolor: "#f4f4f5", borderColor: "#18181b" },
                   }}
-                />
-              ))}
+                >
+                  <ImageOutlinedIcon sx={{ color: "#71717a", fontSize: 28 }} />
+
+                  <Typography sx={{ fontSize: 11, mt: 0.5, textAlign: "center", fontWeight: 600 }}>
+                    {returnImages.length === 0 ? "Add Image" : "Add More"}
+                  </Typography>
+
+                  <input
+                    hidden
+                    multiple
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files);
+
+                      const invalid = files.find((file) => file.size > 5 * 1024 * 1024);
+
+                      if (invalid) {
+                        toast.error("Each image must be less than 5 MB");
+                        return;
+                      }
+
+     setReturnImages((prev) => {
+  const all = [...prev, ...files];
+
+  return all.filter(
+    (file, index, self) =>
+      index ===
+      self.findIndex(
+        (f) =>
+          f.name === file.name &&
+          f.size === file.size &&
+          f.lastModified === file.lastModified
+      )
+  );
+});
+
+                      e.target.value = "";
+                    }}
+                  />
+                </Box>
+              </Stack>
             </Box>
           )}
         </DialogContent>
@@ -1324,19 +1663,18 @@ const openReturnDialog = () => {
               setSelectedReturnItems([]);
             }}
             variant="outlined"
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              borderColor: "#e4e4e7",
-              color: "#27272a",
-            }}
+            sx={{ borderRadius: 2, textTransform: "none", borderColor: "#e4e4e7", color: "#27272a" }}
           >
             Close
           </Button>
 
           <Button
             variant="contained"
-            disabled={!returnDescription || selectedReturnItems.length === 0}
+            disabled={
+              !returnDescription.trim() ||
+              selectedReturnItems.length === 0 ||
+              returnImages.length === 0
+            }
             sx={{
               borderRadius: 2,
               textTransform: "none",

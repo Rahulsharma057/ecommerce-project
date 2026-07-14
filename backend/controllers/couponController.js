@@ -65,13 +65,26 @@ exports.applyCoupon = async (req, res) => {
         message: "Coupon disabled",
       });
     }
+if (coupon.usedCount >= coupon.usageLimit) {
+  return res.status(400).json({
+    message: "Coupon usage limit reached",
+  });
+}
+if (new Date() > coupon.expiryDate) {
 
-    if (new Date() > coupon.expiryDate) {
-      return res.status(400).json({
-        message: "Coupon expired",
-      });
-    }
+  coupon.isActive = false;
 
+  await coupon.save();
+
+  return res.status(400).json({
+    message: "Coupon expired",
+  });
+}
+if (coupon.usedCount >= coupon.usageLimit) {
+  return res.status(400).json({
+    message: "Coupon usage limit exceeded",
+  });
+}
     if (subtotal < coupon.minOrderAmount) {
       return res.status(400).json({
         message: `Minimum order ₹${coupon.minOrderAmount}`,

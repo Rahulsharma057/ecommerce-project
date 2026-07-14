@@ -47,14 +47,9 @@ export default function LuxuryStorySection() {
     fetchStory();
   }, []);
 
-  if (loading) {
-    return (
-      <Box py={10} textAlign="center">
-        <CircularProgress />
-      </Box>
-    );
-  }
-
+if (loading) {
+ return null;
+}
 
   if (!story) return null;
 

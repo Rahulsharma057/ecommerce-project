@@ -24,7 +24,9 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import OrderSummary from "@/components/checkout/OrderSummary";
 import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import ConfirmationDialog from "@/components/common/ConfirmationDialog";
+import RazorpayPaymentButton from "@/components/payment/RazorpayPaymentButton";
 import { API_URL } from "@/lib/api";
+import { getPaymentSettings } from "@/services/payment";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -37,6 +39,7 @@ export default function CheckoutPage() {
   const [discount, setDiscount] = useState(0);
   const [couponCode, setCouponCode] = useState("");
   const [confirmDialog, setConfirmDialog] = useState(false);
+  const [payment, setPayment] = useState(null);
   const subtotal = items.reduce(
     (acc, item) => acc + item.price * item.quantity,
     0,
@@ -44,6 +47,16 @@ export default function CheckoutPage() {
   const shipping = subtotal >= 2000 ? 0 : 99;
   const tax = Math.round(subtotal * 0.05);
   const total = Math.max(subtotal + shipping + tax - discount, 0);
+
+useEffect(() => {
+  if (!payment) return;
+
+  if (payment.razorpay?.enabled) {
+    setPaymentMethod("RAZORPAY");
+  } else if (payment.cod?.enabled) {
+    setPaymentMethod("COD");
+  }
+}, [payment]);
 
   useEffect(() => {
     fetchAddresses();
@@ -114,6 +127,20 @@ export default function CheckoutPage() {
     return updatedItems;
   };
 
+  useEffect(() => {
+    const loadPaymentSettings = async () => {
+      try {
+        const data = await getPaymentSettings();
+        console.log("Payment Settings:", data);
+        console.log("yoooo");
+        setPayment(data);
+      } catch (err) {
+        toast.error("Unable to load payment methods");
+      }
+    };
+    console.log("uuuu");
+    loadPaymentSettings();
+  }, []);
   const fetchCart = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -127,7 +154,7 @@ export default function CheckoutPage() {
       const data = await res.json();
 
       const cartArray = Array.isArray(data) ? data : [];
-
+      console.log(cartArray);
       const correctedItems = cartArray.map((item) => {
         const stock = item.productId?.stock || 0;
 
@@ -135,15 +162,22 @@ export default function CheckoutPage() {
           productId: item.productId?._id,
           name: item.productId?.name,
           image: item.productId?.images?.[0],
-          price: item.productId?.price || 0,
-
-          // 🔥 IMPORTANT FIX
+          price: item.productId?.price,
           quantity: Math.min(item.quantity || 1, stock),
 
-          stock: stock,
+          color: item.color,
+          size: item.size,
+
+          sku: item.productId?.sku,
+          category: item.productId?.category,
+          subCategory: item.productId?.subCategory,
+          brand: item.productId?.brand,
+          fabric: item.productId?.fabric,
+
+          stock,
         };
       });
-
+      console.log(correctedItems, "yoo");
       setItems(correctedItems);
     } catch (err) {
       console.log(err);
@@ -231,7 +265,7 @@ export default function CheckoutPage() {
     }
   };
 
-  const handlePlaceOrder = async () => {
+  const handlePlaceOrder = async (transactionId = "", razorpayOrderId = "") => {
     if (!selectedAddress) {
       toast.warning("Please select a delivery address.");
       return;
@@ -240,42 +274,56 @@ export default function CheckoutPage() {
       toast.warning("Your cart is empty.");
       return;
     }
+
     setPlacingOrder(true);
     const validatedItems = validateStock();
 
-    if (!validatedItems) return; // stop checkout
-
-    const token = localStorage.getItem("token");
-    console.log(validatedItems);
-    const res = await fetch(`${API_URL}/orders/place`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        items: validatedItems, // 🔥 FIXED HERE
-        shippingAddress: selectedAddress,
-        paymentMethod,
-        coupon: couponData?._id,
-        discount,
-        total,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
+    if (!validatedItems) {
+      // FIX: pehle yahan return ho jata tha lekin placingOrder true hi reh jata
+      // tha — button hamesha "Placing..." dikhata reh jata. Ab reset karte hain.
       setPlacingOrder(false);
-      toast.error(data.message || "Failed to place order");
       return;
     }
 
-    localStorage.removeItem("buyNow");
-    localStorage.removeItem("checkoutCoupon");
-    localStorage.removeItem("appliedCoupon");
-    setPlacingOrder(false);
-    toast.success("Your order has been placed successfully.");
-    localStorage.setItem("orderDetailsFrom", "checkout");
-    router.push(`/profile/orders/${data._id}`);
+    const token = localStorage.getItem("token");
+
+    try {
+      const res = await fetch(`${API_URL}/orders/place`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          items: validatedItems,
+          shippingAddress: selectedAddress,
+          paymentMethod,
+          coupon: couponData?._id,
+          discount,
+          total,
+          transactionId, // FIX: Razorpay ke liye ab payment id save hoga
+          razorpayOrderId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.message || "Failed to place order");
+        return;
+      }
+
+      localStorage.removeItem("buyNow");
+      localStorage.removeItem("checkoutCoupon");
+      localStorage.removeItem("appliedCoupon");
+      toast.success("Your order has been placed successfully.");
+      localStorage.setItem("orderDetailsFrom", "checkout");
+      router.push(`/profile/orders/${data._id}`);
+    } catch (err) {
+      toast.error("Something went wrong while placing the order.");
+    } finally {
+      setPlacingOrder(false);
+    }
   };
   const removeCoupon = () => {
     setCouponData(null);
@@ -397,41 +445,46 @@ export default function CheckoutPage() {
                 Payment Method
               </Typography>
 
-              <RadioGroup
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              >
-                <Box
-                  sx={{
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 2,
-                    p: 2,
-                    display: "flex",
-                    alignItems: "center",
-                    transition: "0.2s",
-                    "&:hover": {
-                      borderColor: "primary.main",
-                      backgroundColor: "#f9fafb",
-                    },
+             <RadioGroup
+  value={paymentMethod}
+  onChange={(e) => setPaymentMethod(e.target.value)}
+>
+  {payment?.cod?.enabled && (
+    <FormControlLabel
+      value="COD"
+      control={<Radio />}
+      label="Cash On Delivery"
+    />
+  )}
+
+  {payment?.razorpay?.enabled && (
+    <FormControlLabel
+      value="RAZORPAY"
+      control={<Radio />}
+      label="Online Payment (UPI / Card / Wallet)"
+    />
+  )}
+</RadioGroup>
+              {paymentMethod === "RAZORPAY" && (
+                <RazorpayPaymentButton
+                 gatewayEnabled={payment?.razorpay?.enabled}
+    items={items}
+    shippingAddress={selectedAddress}
+    coupon={couponData?._id}
+    discount={discount}
+                  onSuccess={(order) => {
+                    localStorage.removeItem("buyNow");
+                    localStorage.removeItem("checkoutCoupon");
+                    localStorage.removeItem("appliedCoupon");
+
+                    window.dispatchEvent(new Event("cart-update"));
+
+                    toast.success("Payment Successful");
+
+                    router.push(`/profile/orders/${order._id}`);
                   }}
-                >
-                  <FormControlLabel
-                    value="COD"
-                    control={<Radio />}
-                    label={
-                      <Box>
-                        <Typography fontWeight={600}>
-                          Cash on Delivery
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Pay when your order is delivered to your doorstep
-                        </Typography>
-                      </Box>
-                    }
-                    sx={{ m: 0 }}
-                  />
-                </Box>
-              </RadioGroup>
+                />
+              )}
             </Paper>
           </Grid>
 
@@ -456,7 +509,11 @@ export default function CheckoutPage() {
                 localStorage.removeItem("appliedCoupon");
               }}
               placingOrder={placingOrder}
-              onPlaceOrder={() => setConfirmDialog(true)}
+             onPlaceOrder={() => {
+  if (paymentMethod === "COD") {
+    setConfirmDialog(true);
+  }
+}}
             />
           </Grid>
         </Grid>
@@ -467,10 +524,13 @@ export default function CheckoutPage() {
         message={`Please review your order before placing it.
 
 ✓ Delivery Address Selected
-✓ Payment Method: Cash on Delivery
-✓ Total Amount: ₹${total}
+✓ Payment Method: ${
+         paymentMethod === "COD"
+  ? "Cash On Delivery"
+  : "Online Payment"
+        }
 
-Once your order is placed, it will be processed immediately and cannot be modified.
+✓ Total Amount: ₹${total}
 
 Do you want to continue?`}
         confirmText="Place Order"
@@ -479,7 +539,10 @@ Do you want to continue?`}
         onCancel={() => setConfirmDialog(false)}
         onConfirm={() => {
           setConfirmDialog(false);
-          handlePlaceOrder();
+
+          if (paymentMethod === "COD") {
+            handlePlaceOrder();
+          }
         }}
       />
     </Box>

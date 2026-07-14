@@ -6,11 +6,32 @@ const orderSchema = new mongoose.Schema(
 
     items: [
       {
-        productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+        productId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+        },
+
         name: String,
+
         image: String,
+
         price: Number,
+
         quantity: Number,
+
+        color: String,
+
+        size: String,
+
+        sku: String,
+
+        category: String,
+
+        subCategory: String,
+
+        brand: String,
+
+        fabric: String,
       },
     ],
 
@@ -25,8 +46,11 @@ const orderSchema = new mongoose.Schema(
       pincode: String,
       landmark: String,
     },
-
-    paymentMethod: { type: String, default: "COD" },
+    paymentMethod: {
+      type: String,
+      enum: ["COD", "RAZORPAY"],
+      default: "COD",
+    },
     couponCode: { type: mongoose.Schema.Types.ObjectId, ref: "Coupon" },
     discount: { type: Number, default: 0 },
     discountPercent: { type: Number, default: 0 },
@@ -42,6 +66,26 @@ const orderSchema = new mongoose.Schema(
       default: "Pending",
     },
 
+    // ── Online payment tracking (Razorpay) ──
+    // For COD orders these all stay at their defaults and are simply
+    // ignored — nothing else in the app needs to special-case COD here.
+    paymentStatus: {
+      type: String,
+      enum: ["Pending", "Paid", "Failed", "Refunded", "Partially Refunded"],
+      default: "Pending",
+    },
+    razorpayOrderId: { type: String },
+    razorpayPaymentId: { type: String },
+    razorpaySignature: { type: String },
+    paymentVerifiedAt: { type: Date },
+    paidAmount: {
+      type: Number,
+      default: 0,
+    },
+    // "upi" | "card" | "netbanking" | "wallet" — whatever Razorpay reports
+    // the payment was actually made with, for your own records/analytics.
+    paymentChannel: { type: String, default: "" },
+
     deliveredAt: { type: Date },
 
     cancelledItems: [
@@ -52,20 +96,25 @@ const orderSchema = new mongoose.Schema(
         image: String,
         quantity: Number,
         price: Number,
-        total: Number,
+        color: String,
+        size: String,
+        sku: String,
+        category: String,
+        subCategory: String,
+        brand: String,
+        fabric: String,
         reason: String,
+        adminNote: String,
+        cancelledBy: { type: String, enum: ["user", "admin"] },
+        total: Number,
         cancelledAt: Date,
       },
     ],
     cancelReason: { type: String, default: "" },
-    cancelledBy: { type: String, default: "" },
+    cancelledBy: { type: String, enum: ["user", "admin"], default: null },
     cancelledAt: { type: Date },
+    adminCancelNote: { type: String, default: "" },
 
-    // ── FIX: returns is now an ARRAY of independent return batches.
-    // Each item can only belong to ONE active batch at a time, but once
-    // a batch is Rejected/Refunded, the customer can still start a NEW
-    // batch for other (or even the same, if rejected) items — and old
-    // batches are never overwritten, they just stay in this array.
     returns: [
       {
         items: [
@@ -74,8 +123,8 @@ const orderSchema = new mongoose.Schema(
             productId: mongoose.Schema.Types.ObjectId,
             name: String,
             image: String,
-            quantity: Number,
             price: Number,
+            quantity: Number,
             total: Number,
           },
         ],
@@ -89,7 +138,13 @@ const orderSchema = new mongoose.Schema(
         },
         pickupStatus: {
           type: String,
-          enum: ["NotPicked", "PickupScheduled", "Picked", "InTransit", "Received"],
+          enum: [
+            "NotPicked",
+            "PickupScheduled",
+            "Picked",
+            "InTransit",
+            "Received",
+          ],
           default: "NotPicked",
         },
         refundStatus: {
@@ -97,15 +152,32 @@ const orderSchema = new mongoose.Schema(
           enum: ["None", "Pending", "Completed"],
           default: "None",
         },
+
+        itemsSubtotal: { type: Number, default: 0 },
+        discountAmount: { type: Number, default: 0 },
+        taxAmount: { type: Number, default: 0 },
+        refundTax: { type: Boolean, default: true },
         refundAmount: { type: Number, default: 0 },
+
         adminNote: { type: String, default: "" },
         timeline: [{ status: String, message: String, date: Date }],
         requestedAt: { type: Date, default: Date.now },
         completedAt: Date,
       },
     ],
+    refundedAmount: {
+      type: Number,
+      default: 0,
+    },
 
-    invoiceNumber: { type: String, unique: true },
+    refundedAt: {
+      type: Date,
+    },
+    invoiceNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
     invoiceDate: Date,
     invoiceSent: { type: Boolean, default: false },
     invoiceGenerated: { type: Boolean, default: false },

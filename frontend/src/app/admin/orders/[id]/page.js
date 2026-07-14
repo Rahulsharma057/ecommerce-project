@@ -126,6 +126,7 @@ function LoadingSkeleton() {
     </Container>
   );
 }
+
 function ReturnDecisionBox({ order, returnId, onDone }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -159,16 +160,252 @@ function ReturnDecisionBox({ order, returnId, onDone }) {
         sx={{ mb: 1.5, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
       />
       <Stack direction="row" spacing={1.5}>
-        <Button variant="outlined" color="error" disabled={busy} onClick={() => decide("Rejected")} sx={{ textTransform: "none", fontWeight: 700, borderRadius: 2 }}>
+        <Button
+          variant="outlined"
+          color="error"
+          disabled={busy}
+          onClick={() => decide("Rejected")}
+          sx={{ textTransform: "none", fontWeight: 700, borderRadius: 2 }}
+        >
           Reject
         </Button>
-        <Button variant="contained" color="warning" disabled={busy} onClick={() => decide("Approved")} sx={{ textTransform: "none", fontWeight: 700, borderRadius: 2 }}>
+        <Button
+          variant="contained"
+          color="warning"
+          disabled={busy}
+          onClick={() => decide("Approved")}
+          sx={{ textTransform: "none", fontWeight: 700, borderRadius: 2 }}
+        >
           Approve
         </Button>
       </Stack>
     </Box>
   );
 }
+
+function RefundBox({ order, returnBatch, onDone }) {
+  const netItemValue = returnBatch.itemsSubtotal - returnBatch.discountAmount;
+  const maxRefundable = netItemValue + returnBatch.taxAmount;
+
+  const [refundTax, setRefundTax] = useState(returnBatch.refundTax);
+  const [amount, setAmount] = useState(
+    returnBatch.refundAmount || netItemValue + (returnBatch.refundTax ? returnBatch.taxAmount : 0),
+  );
+  const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(returnBatch.refundStatus === "None");
+
+  const handleToggleTax = (checked) => {
+    setRefundTax(checked);
+    setAmount(netItemValue + (checked ? returnBatch.taxAmount : 0));
+  };
+
+  const submit = async (refundStatus) => {
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `${API_URL}/orders/admin/refund/${order._id}/${returnBatch._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ refundStatus, refundAmount: amount, refundTax }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "Failed to update refund");
+        return;
+      }
+      setEditing(false);
+      onDone();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!editing) {
+    return (
+      <Box>
+        <Typography fontSize={11.5} fontWeight={600} color="text.secondary" textTransform="uppercase" mb={1}>
+          Refund
+        </Typography>
+        <Box
+          sx={{
+            p: 2,
+            borderRadius: 2,
+            border: "1px solid",
+            borderColor: returnBatch.refundStatus === "Completed" ? "#bbf7d0" : "#fde68a",
+            bgcolor: returnBatch.refundStatus === "Completed" ? "#f0fdf4" : "#fffbeb",
+          }}
+        >
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Box>
+              <Typography
+                fontSize={13}
+                fontWeight={700}
+                color={returnBatch.refundStatus === "Completed" ? "#16a34a" : "#d97706"}
+              >
+                {returnBatch.refundStatus === "Completed" ? "Refund Completed" : "Refund Pending"}
+              </Typography>
+              <Typography fontSize={16} fontWeight={700} color="#18181b" mt={0.3}>
+                ₹{returnBatch.refundAmount.toLocaleString("en-IN")}
+              </Typography>
+              <Typography fontSize={11.5} color="text.secondary" mt={0.3}>
+                {returnBatch.refundTax ? "Includes tax" : "Tax excluded"}
+              </Typography>
+            </Box>
+
+            {returnBatch.refundStatus === "Pending" && (
+              <Button size="small" onClick={() => setEditing(true)} sx={{ textTransform: "none", fontWeight: 600 }}>
+                Edit
+              </Button>
+            )}
+          </Stack>
+        </Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Typography fontSize={11.5} fontWeight={600} color="text.secondary" textTransform="uppercase" mb={1}>
+        Refund
+      </Typography>
+
+      <Box sx={{ p: 2, borderRadius: 2, border: "1px solid #e5e7eb", bgcolor: "#fafafa" }}>
+        <Stack direction="row" justifyContent="space-between" mb={1}>
+          <Typography fontSize={13} color="text.secondary">
+            Item value
+          </Typography>
+          <Typography fontSize={13} fontWeight={600}>
+            ₹{returnBatch.itemsSubtotal.toLocaleString("en-IN")}
+          </Typography>
+        </Stack>
+
+        {returnBatch.discountAmount > 0 && (
+          <Stack direction="row" justifyContent="space-between" mb={1}>
+            <Typography fontSize={13} color="text.secondary">
+              Coupon discount (this item's share)
+            </Typography>
+            <Typography fontSize={13} fontWeight={600} color="error.main">
+              −₹{returnBatch.discountAmount.toLocaleString("en-IN")}
+            </Typography>
+          </Stack>
+        )}
+
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Checkbox size="small" checked={refundTax} onChange={(e) => handleToggleTax(e.target.checked)} sx={{ p: 0.5 }} />
+            <Typography fontSize={13} color="text.secondary">
+              Refund tax (₹{returnBatch.taxAmount.toLocaleString("en-IN")})
+            </Typography>
+          </Stack>
+          <Typography fontSize={13} fontWeight={600} color={refundTax ? "success.main" : "text.disabled"}>
+            {refundTax ? `+₹${returnBatch.taxAmount}` : "Excluded"}
+          </Typography>
+        </Stack>
+
+        <Divider sx={{ my: 1.5 }} />
+
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5}>
+          <Typography fontSize={13} fontWeight={700}>
+            Refund amount
+          </Typography>
+          <Typography fontSize={11.5} color="text.secondary">
+            Max: ₹{maxRefundable.toLocaleString("en-IN")}
+          </Typography>
+        </Stack>
+
+        <TextField
+          type="number"
+          size="small"
+          fullWidth
+          value={amount}
+          onChange={(e) => {
+            const val = Number(e.target.value);
+            setAmount(Number.isNaN(val) ? 0 : Math.min(Math.max(val, 0), maxRefundable));
+          }}
+          InputProps={{
+            startAdornment: <Typography sx={{ mr: 0.5, color: "text.secondary" }}>₹</Typography>,
+          }}
+          sx={{ mb: 2, "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "#fff" } }}
+        />
+
+        <Stack direction="row" spacing={1.5}>
+          <Button
+            variant="outlined"
+            disabled={busy}
+            onClick={() => submit("Pending")}
+            sx={{ textTransform: "none", fontWeight: 600, borderRadius: 2 }}
+          >
+            Save as Pending
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            disabled={busy || amount <= 0}
+            onClick={() => submit("Completed")}
+            sx={{ textTransform: "none", fontWeight: 700, borderRadius: 2 }}
+          >
+            Mark Refund Completed
+          </Button>
+        </Stack>
+      </Box>
+    </Box>
+  );
+}
+
+// Inline-editable admin note on a single cancelled item — separate from
+// the cancel reason itself, so admin can add/update a customer-facing
+// note (e.g. "refund issued via original payment method") after the fact.
+// NOTE: assumes a matching backend route
+// PUT /orders/admin/cancel-note/:orderId/:itemId  body: { adminNote }
+// — adjust the path below if your backend names it differently.
+function CancelItemNoteBox({ orderId, item, onDone }) {
+  const [note, setNote] = useState(item.adminNote || "");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await fetch(`${API_URL}/orders/admin/cancel-note/${orderId}/${item.itemId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ adminNote: note }),
+      });
+      onDone();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Stack direction="row" spacing={1} sx={{ mt: 1, width: "100%" }}>
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Add a note for the customer (e.g. refund status)..."
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+      />
+      <Button
+        variant="outlined"
+        size="small"
+        disabled={saving}
+        onClick={save}
+        sx={{ textTransform: "none", flexShrink: 0 }}
+      >
+        Save
+      </Button>
+    </Stack>
+  );
+}
+
 export default function OrderDetail() {
   const { id } = useParams();
   const router = useRouter();
@@ -179,10 +416,6 @@ export default function OrderDetail() {
   const [cancelReason, setCancelReason] = useState("");
   const [selectedCancelItems, setSelectedCancelItems] = useState([]);
   const [cancelling, setCancelling] = useState(false);
-
-  // Return/refund action state
-  const [adminNote, setAdminNote] = useState("");
-  const [acting, setActing] = useState(false);
 
   useEffect(() => {
     if (id) fetchOrder();
@@ -195,7 +428,6 @@ export default function OrderDetail() {
       });
       const data = await res.json();
       setOrder(data);
-      setAdminNote(data?.adminNote || "");
     } catch (err) {
       console.error(err);
     }
@@ -225,9 +457,25 @@ export default function OrderDetail() {
     : "U";
 
   const cancelledIds = order.cancelledItems?.map((i) => i.itemId.toString()) || [];
-  const cancellableItems = items.filter((i) => !cancelledIds.includes(i._id.toString()));
+  // Items already tied up in a return (any status other than Rejected)
+  // shouldn't be offered for cancellation either — this exclusion existed
+  // on the user-facing page but was missing here.
+  const returnedIds = new Set(
+    (order.returns || [])
+      .filter((r) => r.status !== "Rejected")
+      .flatMap((r) => r.items.map((i) => i.itemId.toString())),
+  );
+  const cancellableItems = items.filter(
+    (i) => !cancelledIds.includes(i._id.toString()) && !returnedIds.has(i._id.toString()),
+  );
   const canCancel = order.status === "Pending" || order.status === "Confirmed" || order.status === "Shipped";
-  const isReturnActive = order.returnStatus && order.returnStatus !== "None";
+
+  // Fixed: was reading the no-longer-existent order.returnStatus, so the
+  // "•" attention indicator on the tab never lit up. Now reflects whether
+  // any return batch actually needs admin action.
+  const returns = order.returns || [];
+  const returnsNeedAttention = returns.some((r) => r.status === "Requested");
+  const isReturnActive = returns.length > 0;
 
   const toggleCancelItem = (itemId) => {
     setSelectedCancelItems((prev) =>
@@ -273,47 +521,6 @@ export default function OrderDetail() {
     }
   };
 
-  const updateReturnStatus = async (newStatus) => {
-    setActing(true);
-    try {
-      await fetch(`${API_URL}/orders/admin/return/${_id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({ status: newStatus, adminNote }),
-      });
-      fetchOrder();
-    } finally {
-      setActing(false);
-    }
-  };
-
-  const updatePickupStatus = async (pickupStatus) => {
-    await fetch(`${API_URL}/orders/admin/return/pickup/${_id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-      body: JSON.stringify({ pickupStatus }),
-    });
-    fetchOrder();
-  };
-
-  const updateRefundStatus = async (refundStatus) => {
-    await fetch(`${API_URL}/orders/admin/refund/${_id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-      body: JSON.stringify({ refundStatus }),
-    });
-    fetchOrder();
-  };
-
   return (
     <Box sx={{ bgcolor: "#f7f8fa", minHeight: "100vh", py: 4 }}>
       <Container maxWidth="md">
@@ -335,11 +542,16 @@ export default function OrderDetail() {
               Order ID: {_id}
             </Typography>
           </Box>
-
-          <Chip
-            label={status}
-            sx={{ fontWeight: 700, bgcolor: statusCfg.bg, color: statusCfg.color }}
-          />
+<Chip
+label={order.paymentStatus}
+color={
+order.paymentStatus==="Paid"
+?"success"
+:order.paymentStatus==="Failed"
+?"error"
+:"warning"}
+/>
+          <Chip label={status} sx={{ fontWeight: 700, bgcolor: statusCfg.bg, color: statusCfg.color }} />
         </Stack>
 
         {/* TABS */}
@@ -359,7 +571,9 @@ export default function OrderDetail() {
           >
             <Tab label="Details" />
             <Tab label="Cancel Order" />
-            <Tab label={`Return & Refund${isReturnActive ? " •" : ""}`} />
+            <Tab
+              label={`Return & Refund${isReturnActive ? (returnsNeedAttention ? " •" : ` (${returns.length})`) : ""}`}
+            />
           </Tabs>
         </Paper>
 
@@ -386,11 +600,27 @@ export default function OrderDetail() {
                   <InfoRow icon={<EmailOutlinedIcon sx={{ fontSize: 16 }} />} label="Email" value={user?.email ?? addr?.email ?? "—"} />
                   <InfoRow icon={<CalendarTodayOutlinedIcon sx={{ fontSize: 16 }} />} label="Placed on" value={formattedDate} />
                   <InfoRow icon={<PaymentOutlinedIcon sx={{ fontSize: 16 }} />} label="Payment" value={paymentMethod ?? "—"} />
+                  
+                  <InfoRow
+  icon={<CalendarTodayOutlinedIcon sx={{ fontSize:16 }} />}
+  label="Paid On"
+  value={
+    order.paymentVerifiedAt
+      ? new Date(order.paymentVerifiedAt).toLocaleString("en-IN")
+      : "Not Paid"
+  }
+/>
+                  <InfoRow
+ icon={<PaymentOutlinedIcon sx={{ fontSize:16 }} />}
+ label="Status"
+ value={order.paymentStatus ?? "Pending"}
+ />
                 </SectionCard>
               </Grid>
 
               <Grid item xs={12} md={6}>
                 <SectionCard icon={<LocalShippingOutlinedIcon sx={{ fontSize: 18 }} />} title="Shipping address">
+                
                   <Stack spacing={0.5}>
                     <Typography fontWeight={600} fontSize={14}>
                       {addr?.fullName ?? "—"}
@@ -437,61 +667,205 @@ export default function OrderDetail() {
                 )}
               </Stack>
             </SectionCard>
+<SectionCard
+  icon={<PaymentOutlinedIcon sx={{ fontSize: 18 }} />}
+  title="Payment Management"
+>
+  <Stack spacing={2}>
+
+    <Select
+      value={order.paymentStatus}
+      size="small"
+      onChange={async (e) => {
+        await fetch(`${API_URL}/orders/admin/payment/${order._id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            paymentStatus: e.target.value,
+          }),
+        });
+
+        fetchOrder();
+      }}
+      sx={{
+        width: 220,
+        borderRadius: 2,
+      }}
+    >
+      <MenuItem value="Pending">Pending</MenuItem>
+      <MenuItem value="Paid">Paid</MenuItem>
+      <MenuItem value="Failed">Failed</MenuItem>
+      <MenuItem value="Refunded">Refunded</MenuItem>
+    </Select>
+
+    <Typography fontSize={13}>
+      Payment Method : <b>{order.paymentMethod}</b>
+    </Typography>
+
+    <Typography fontSize={13}>
+      Payment Date :
+      {" "}
+      {order.paymentVerifiedAt
+        ? new Date(order.paymentVerifiedAt).toLocaleString("en-IN")
+        : "Not Paid"}
+    </Typography>
+
+    {order.razorpayPaymentId && (
+      <Typography fontSize={13}>
+        Payment ID :
+        {" "}
+        {order.razorpayPaymentId}
+      </Typography>
+    )}
+
+    {order.paymentChannel && (
+      <Typography fontSize={13}>
+        Channel :
+        {" "}
+        {order.paymentChannel}
+      </Typography>
+    )}
+
+  </Stack>
+</SectionCard>
+
 
             {/* PRODUCTS */}
-            <SectionCard icon={<ShoppingBagOutlinedIcon sx={{ fontSize: 18 }} />} title="Products">
-              {items.length === 0 ? (
-                <Typography fontSize={13} color="text.secondary">
-                  No items found
-                </Typography>
-              ) : (
-                <Stack divider={<Divider />}>
-                  {items.map((item, i) => (
-                    <Box key={i} sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", py: 1.5 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                        <Avatar
-                          src={item.image}
-                          variant="rounded"
-                          sx={{ width: 44, height: 44, borderRadius: 2, bgcolor: "grey.100", border: "1px solid", borderColor: "grey.200" }}
-                        >
-                          <ShoppingBagOutlinedIcon sx={{ fontSize: 18, color: "grey.400" }} />
-                        </Avatar>
-                        <Box>
-                          <Typography fontSize={14} fontWeight={500}>
-                            {item.name}
-                          </Typography>
-                          <Typography fontSize={12} color="text.secondary">
-                            Qty: {item.quantity}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Typography fontSize={14} fontWeight={600}>
-                        ₹{(item.price * item.quantity).toLocaleString("en-IN")}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Stack>
-              )}
+        {/* PRODUCTS */}
+<SectionCard icon={<ShoppingBagOutlinedIcon sx={{ fontSize: 18 }} />} title="Products">
+  {items.length === 0 ? (
+    <Typography fontSize={13} color="text.secondary">
+      No items found
+    </Typography>
+  ) : (
+    <Stack divider={<Divider />}>
+      {items.map((item, i) => {
+        const product = item.productId;
 
+        return (
+          <Box
+            key={i}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              py: 1.5,
+              gap: 2,
+              flexWrap: "wrap",
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2, flex: 1, minWidth: 240 }}>
+              <Avatar
+                src={item.image}
+                variant="rounded"
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 2,
+                  bgcolor: "grey.100",
+                  border: "1px solid",
+                  borderColor: "grey.200",
+                  flexShrink: 0,
+                }}
+              >
+                <ShoppingBagOutlinedIcon sx={{ fontSize: 18, color: "grey.400" }} />
+              </Avatar>
+
+              <Box>
+                <Typography fontSize={14} fontWeight={500}>
+                  {item.name}
+                </Typography>
+
+                {product && (product.brand || product.category) && (
+                  <Typography fontSize={11.5} color="text.secondary">
+                    {[product.brand, product.category, product.subCategory].filter(Boolean).join(" · ")}
+                  </Typography>
+                )}
+
+                {product?.fabric && (
+                  <Typography fontSize={11.5} color="text.secondary">
+                    Fabric: {product.fabric}
+                  </Typography>
+                )}
+
+                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                  {item.color && (
+                    <Chip label={`Color: ${item.color}`} size="small" sx={{ height: 19, fontSize: 10.5 }} />
+                  )}
+                  {item.size && (
+                    <Chip label={`Size: ${item.size}`} size="small" sx={{ height: 19, fontSize: 10.5 }} />
+                  )}
+                  <Chip label={`Qty: ${item.quantity}`} size="small" sx={{ height: 19, fontSize: 10.5 }} />
+                  {product?.sku && (
+                    <Chip label={`SKU: ${product.sku}`} size="small" variant="outlined" sx={{ height: 19, fontSize: 10.5 }} />
+                  )}
+                  {product?.stock !== undefined && (
+                    <Chip
+                      label={`Stock: ${product.stock}`}
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        height: 19,
+                        fontSize: 10.5,
+                        borderColor: product.stock > 0 ? "#bbf7d0" : "#fecaca",
+                        color: product.stock > 0 ? "#16a34a" : "#dc2626",
+                      }}
+                    />
+                  )}
+                </Stack>
+              </Box>
+            </Box>
+
+            <Typography fontSize={14} fontWeight={600} sx={{ flexShrink: 0 }}>
+              ₹{(item.price * item.quantity).toLocaleString("en-IN")}
+            </Typography>
+          </Box>
+        );
+      })}
+    </Stack>
+  )}
+  {/* ...baaki price breakdown section same rehta hai neeche... */}
               <Divider sx={{ mt: 1 }} />
 
+              {/* PRICE BREAKDOWN — mirrors what the customer sees, so admin
+                  can verify the same numbers without cross-checking the DB */}
               <Box sx={{ pt: 2 }}>
-                {order.couponCode && (
-                  <>
-                    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-                      <Typography color="text.secondary">Coupon Applied</Typography>
-                      <Typography color="success.main" fontWeight={600}>
-                        {order.couponCode.code}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-                      <Typography color="text.secondary">Discount</Typography>
-                      <Typography color="success.main" fontWeight={600}>
-                        -₹{order.discount}
-                      </Typography>
-                    </Box>
-                  </>
+                <Stack direction="row" justifyContent="space-between" mb={1}>
+                  <Typography fontSize={13} color="text.secondary">
+                    Subtotal
+                  </Typography>
+                  <Typography fontSize={13}>₹{(order.subtotal || 0).toLocaleString("en-IN")}</Typography>
+                </Stack>
+
+                {order.couponCode && order.discount > 0 && (
+                  <Stack direction="row" justifyContent="space-between" mb={1}>
+                    <Typography color="text.secondary" fontSize={13}>
+                      Coupon ({order.couponCode.code || "Applied"})
+                    </Typography>
+                    <Typography color="success.main" fontWeight={600} fontSize={13}>
+                      -₹{order.discount.toLocaleString("en-IN")}
+                    </Typography>
+                  </Stack>
                 )}
+
+                <Stack direction="row" justifyContent="space-between" mb={1}>
+                  <Typography fontSize={13} color="text.secondary">
+                    Shipping
+                  </Typography>
+                  <Typography fontSize={13}>
+                    {order.shippingFee > 0 ? `₹${order.shippingFee}` : "Free"}
+                  </Typography>
+                </Stack>
+
+                <Stack direction="row" justifyContent="space-between" mb={1}>
+                  <Typography fontSize={13} color="text.secondary">
+                    Tax
+                  </Typography>
+                  <Typography fontSize={13}>₹{(order.tax || 0).toLocaleString("en-IN")}</Typography>
+                </Stack>
 
                 <Divider />
 
@@ -504,13 +878,16 @@ export default function OrderDetail() {
                   </Typography>
                 </Box>
 
-                {order.refundAmount > 0 && (
+                {/* Fixed: was checking order.refundAmount, which doesn't
+                    exist — the real running total is order.refundedAmount,
+                    so this line never used to show up. */}
+                {order.refundedAmount > 0 && (
                   <Box sx={{ display: "flex", justifyContent: "space-between", pt: 1 }}>
                     <Typography fontSize={13} color="text.secondary">
-                      Refunded
+                      Refunded so far
                     </Typography>
                     <Typography fontSize={14} fontWeight={700} color="success.main">
-                      -₹{Number(order.refundAmount).toLocaleString("en-IN")}
+                      -₹{Number(order.refundedAmount).toLocaleString("en-IN")}
                     </Typography>
                   </Box>
                 )}
@@ -550,14 +927,37 @@ export default function OrderDetail() {
         {tab === 1 && (
           <Stack spacing={2}>
             {status === "Cancelled" ? (
+              // Restored — this card's content had been commented out,
+              // leaving admin with no summary of why the order was
+              // cancelled (only visible per-item further down the page).
               <SectionCard icon={<CancelOutlinedIcon sx={{ fontSize: 18 }} />} title="Order Cancelled">
                 <Box sx={{ p: 2, borderRadius: 2, bgcolor: "#fef2f2", border: "1px solid #fecaca" }}>
-                  <Typography fontWeight={600} color="#dc2626" fontSize={14}>
-                    Cancel Reason: {order.cancelReason || "Not specified"}
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#991b1b",
+                      textTransform: "uppercase",
+                      letterSpacing: 0.3,
+                      mb: 0.5,
+                    }}
+                  >
+                    {order.cancelledBy === "admin"
+                      ? "Message sent to customer"
+                      : "Customer's cancellation reason"}
+                  </Typography>
+                  <Typography sx={{ fontSize: 14, color: "#dc2626", fontWeight: 500 }}>
+                    {order.cancelReason || "No reason provided"}
                   </Typography>
                   {order.cancelledAt && (
-                    <Typography fontSize={12.5} color="text.secondary" mt={0.5}>
-                      Cancelled on {new Date(order.cancelledAt).toLocaleString("en-IN")}
+                    <Typography sx={{ fontSize: 12, color: "#b91c1c", mt: 0.5 }}>
+                      Cancelled on{" "}
+                      {new Date(order.cancelledAt).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                      {order.cancelledBy && ` · by ${order.cancelledBy}`}
                     </Typography>
                   )}
                 </Box>
@@ -572,7 +972,7 @@ export default function OrderDetail() {
               <SectionCard icon={<CancelOutlinedIcon sx={{ fontSize: 18 }} />} title="Cancel Order">
                 {cancellableItems.length === 0 ? (
                   <Typography fontSize={13.5} color="text.secondary">
-                    All items in this order have already been cancelled.
+                    All items in this order have already been cancelled or are part of a return.
                   </Typography>
                 ) : (
                   <>
@@ -616,9 +1016,11 @@ export default function OrderDetail() {
                       fullWidth
                       multiline
                       rows={3}
-                      label="Reason for cancellation"
+                      label="Message to customer (why this order is being cancelled)"
+                      placeholder="e.g. Product went out of stock, unable to fulfill your order..."
                       value={cancelReason}
                       onChange={(e) => setCancelReason(e.target.value)}
+                      helperText="The customer will see this exact message on their order page."
                       sx={{ mb: 2, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
                     />
 
@@ -645,30 +1047,41 @@ export default function OrderDetail() {
                       sx={{
                         display: "flex",
                         justifyContent: "space-between",
-                        alignItems: "center",
+                        alignItems: "flex-start",
+                        flexWrap: "wrap",
+                        gap: 1.5,
                         p: 1.5,
                         border: "1px solid #fecaca",
                         bgcolor: "#fef2f2",
                         borderRadius: 2,
                       }}
                     >
-                      <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1, minWidth: 220 }}>
                         <Avatar src={item.image} variant="rounded" sx={{ width: 48, height: 48, borderRadius: 1.5 }} />
-                        <Box>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
                           <Typography fontWeight={600} fontSize={13.5}>
                             {item.name}
                           </Typography>
                           <Typography fontSize={12} color="text.secondary">
                             Qty: {item.quantity} · ₹{item.price}
                           </Typography>
-                          {item.reason && (
-                            <Typography fontSize={11.5} color="text.secondary">
-                              Reason: {item.reason}
+
+                          <Typography fontSize={11.5} color="text.secondary">
+                            {item.cancelledBy === "admin"
+                              ? `Admin Reason: ${item.reason || "No reason provided"}`
+                              : `Customer Reason: ${item.reason || "No reason provided"}`}
+                          </Typography>
+
+                          {item.adminNote && (
+                            <Typography fontSize={11.5} color="#2563eb" sx={{ mt: 0.3 }}>
+                              Admin Note: {item.adminNote}
                             </Typography>
                           )}
+
+                          <CancelItemNoteBox orderId={_id} item={item} onDone={fetchOrder} />
                         </Box>
                       </Stack>
-                      <Chip label="Cancelled" color="error" size="small" sx={{ fontWeight: 700 }} />
+                      <Chip label="Cancelled" color="error" size="small" sx={{ fontWeight: 700, flexShrink: 0 }} />
                     </Box>
                   ))}
                 </Stack>
@@ -678,133 +1091,137 @@ export default function OrderDetail() {
         )}
 
         {/* ───────────── TAB 2: RETURN & REFUND ───────────── */}
-     {tab === 2 && (
-  <Stack spacing={2}>
-    {(!order.returns || order.returns.length === 0) ? (
-      <SectionCard icon={<AssignmentReturnOutlinedIcon sx={{ fontSize: 18 }} />} title="Return & Refund">
-        <Typography fontSize={13.5} color="text.secondary">
-          No return has been requested for this order.
-        </Typography>
-      </SectionCard>
-    ) : (
-      order.returns.map((ret, idx) => (
-        <SectionCard
-          key={ret._id}
-          icon={<AssignmentReturnOutlinedIcon sx={{ fontSize: 18 }} />}
-          title={`Return #${order.returns.length - idx}`}
-        >
+        {tab === 2 && (
           <Stack spacing={2}>
-            <Chip
-              label={ret.status}
-              sx={{
-                fontWeight: 700,
-                width: "fit-content",
-                bgcolor: RETURN_STATUS_COLOR[ret.status]?.bg,
-                color: RETURN_STATUS_COLOR[ret.status]?.color,
-              }}
-            />
-
-            <Stack spacing={1}>
-              {ret.items.map((item) => (
-                <Box
-                  key={item.itemId}
-                  sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1, border: "1px solid #e5e7eb", borderRadius: 2 }}
-                >
-                  <Avatar src={item.image} variant="rounded" sx={{ width: 44, height: 44, borderRadius: 1.5 }} />
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography fontWeight={600} fontSize={13.5} noWrap>{item.name}</Typography>
-                    <Typography fontSize={12} color="text.secondary">Qty: {item.quantity} · ₹{item.price}</Typography>
-                  </Box>
-                  <Typography fontWeight={700} fontSize={14}>₹{item.total?.toLocaleString()}</Typography>
-                </Box>
-              ))}
-            </Stack>
-
-            {ret.reason && (
-              <Box>
-                <Typography fontSize={11.5} fontWeight={600} color="text.secondary" textTransform="uppercase">
-                  Customer Reason
+            {returns.length === 0 ? (
+              <SectionCard icon={<AssignmentReturnOutlinedIcon sx={{ fontSize: 18 }} />} title="Return & Refund">
+                <Typography fontSize={13.5} color="text.secondary">
+                  No return has been requested for this order.
                 </Typography>
-                <Typography fontSize={14} mt={0.5}>{ret.reason}</Typography>
-              </Box>
-            )}
-
-            {/* Approve/Reject — only while this batch is still Requested */}
-            {ret.status === "Requested" && (
-              <ReturnDecisionBox order={order} returnId={ret._id} onDone={fetchOrder} />
-            )}
-
-            {/* Pickup — only relevant once THIS batch is approved */}
-            {ret.status === "Approved" && (
-              <Box>
-                <Typography fontSize={11.5} fontWeight={600} color="text.secondary" textTransform="uppercase" mb={0.75}>
-                  Pickup Status
-                </Typography>
-                <Select
-                  value={ret.pickupStatus}
-                  size="small"
-                  onChange={async (e) => {
-                    await fetch(`${API_URL}/orders/admin/return/pickup/${order._id}/${ret._id}`, {
-                      method: "PUT",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
-                      },
-                      body: JSON.stringify({ pickupStatus: e.target.value }),
-                    });
-                    fetchOrder();
-                  }}
-                  sx={{ minWidth: 200, fontWeight: 600, fontSize: 13.5, borderRadius: 2 }}
+              </SectionCard>
+            ) : (
+              returns.map((ret, idx) => (
+                <SectionCard
+                  key={ret._id}
+                  icon={<AssignmentReturnOutlinedIcon sx={{ fontSize: 18 }} />}
+                  title={`Return #${returns.length - idx}`}
                 >
-                  <MenuItem value="NotPicked">Not Picked</MenuItem>
-                  <MenuItem value="PickupScheduled">Pickup Scheduled</MenuItem>
-                  <MenuItem value="Picked">Picked</MenuItem>
-                  <MenuItem value="InTransit">In Transit</MenuItem>
-                  <MenuItem value="Received">Received</MenuItem>
-                </Select>
-              </Box>
-            )}
+                  <Stack spacing={2}>
+                    <Chip
+                      label={ret.status}
+                      sx={{
+                        fontWeight: 700,
+                        width: "fit-content",
+                        bgcolor: RETURN_STATUS_COLOR[ret.status]?.bg,
+                        color: RETURN_STATUS_COLOR[ret.status]?.color,
+                      }}
+                    />
 
-            {/* Refund — only once THIS batch's item is received */}
-            {ret.pickupStatus === "Received" && (
-              <Box>
-                <Typography fontSize={11.5} fontWeight={600} color="text.secondary" textTransform="uppercase" mb={0.75}>
-                  Refund Status
-                </Typography>
-                <Select
-                  value={ret.refundStatus}
-                  size="small"
-                  onChange={async (e) => {
-                    await fetch(`${API_URL}/orders/admin/refund/${order._id}/${ret._id}`, {
-                      method: "PUT",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
-                      },
-                      body: JSON.stringify({ refundStatus: e.target.value }),
-                    });
-                    fetchOrder();
-                  }}
-                  sx={{ minWidth: 200, fontWeight: 600, fontSize: 13.5, borderRadius: 2 }}
-                >
-                  <MenuItem value="None">None</MenuItem>
-                  <MenuItem value="Pending">Pending</MenuItem>
-                  <MenuItem value="Completed">Completed</MenuItem>
-                </Select>
+                    <Stack spacing={1}>
+                      {ret.items.map((item) => (
+                        <Box
+                          key={item.itemId}
+                          sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1, border: "1px solid #e5e7eb", borderRadius: 2 }}
+                        >
+                          <Avatar src={item.image} variant="rounded" sx={{ width: 44, height: 44, borderRadius: 1.5 }} />
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography fontWeight={600} fontSize={13.5} noWrap>
+                              {item.name}
+                            </Typography>
+                            <Typography fontSize={12} color="text.secondary">
+                              Qty: {item.quantity} · ₹{item.price}
+                            </Typography>
+                          </Box>
+                          <Typography fontWeight={700} fontSize={14}>
+                            ₹{item.total?.toLocaleString()}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
 
-                {ret.refundAmount > 0 && (
-                  <Typography fontSize={13.5} color="success.main" fontWeight={700} mt={1}>
-                    Refund Amount: ₹{ret.refundAmount.toLocaleString("en-IN")}
-                  </Typography>
-                )}
-              </Box>
+                    {ret.reason && (
+                      <Box>
+                        <Typography fontSize={11.5} fontWeight={600} color="text.secondary" textTransform="uppercase">
+                          Customer Reason
+                        </Typography>
+                        <Typography fontSize={14} mt={0.5}>
+                          {ret.reason}
+                        </Typography>
+                      </Box>
+                    )}
+
+                    {ret.images?.length > 0 && (
+                      <Box>
+                        <Typography fontSize={11.5} fontWeight={600} color="text.secondary" textTransform="uppercase" mb={1}>
+                          Return Proof
+                        </Typography>
+                        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+                          {ret.images.map((img, index) => (
+                            <Box
+                              key={index}
+                              component="img"
+                              src={img}
+                              alt={`Return Proof ${index + 1}`}
+                              onClick={() => window.open(img, "_blank")}
+                              sx={{
+                                width: 110,
+                                height: 110,
+                                objectFit: "cover",
+                                borderRadius: 2,
+                                border: "1px solid #e5e7eb",
+                                cursor: "pointer",
+                                transition: ".3s",
+                                "&:hover": { transform: "scale(1.05)" },
+                              }}
+                            />
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
+
+                    {ret.status === "Requested" && (
+                      <ReturnDecisionBox order={order} returnId={ret._id} onDone={fetchOrder} />
+                    )}
+
+                    {ret.status === "Approved" && (
+                      <Box>
+                        <Typography fontSize={11.5} fontWeight={600} color="text.secondary" textTransform="uppercase" mb={0.75}>
+                          Pickup Status
+                        </Typography>
+                        <Select
+                          value={ret.pickupStatus}
+                          size="small"
+                          onChange={async (e) => {
+                            await fetch(`${API_URL}/orders/admin/return/pickup/${order._id}/${ret._id}`, {
+                              method: "PUT",
+                              headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${localStorage.getItem("token")}`,
+                              },
+                              body: JSON.stringify({ pickupStatus: e.target.value }),
+                            });
+                            fetchOrder();
+                          }}
+                          sx={{ minWidth: 200, fontWeight: 600, fontSize: 13.5, borderRadius: 2 }}
+                        >
+                          <MenuItem value="NotPicked">Not Picked</MenuItem>
+                          <MenuItem value="PickupScheduled">Pickup Scheduled</MenuItem>
+                          <MenuItem value="Picked">Picked</MenuItem>
+                          <MenuItem value="InTransit">In Transit</MenuItem>
+                          <MenuItem value="Received">Received</MenuItem>
+                        </Select>
+                      </Box>
+                    )}
+
+                    {ret.pickupStatus === "Received" && (
+                      <RefundBox order={order} returnBatch={ret} onDone={fetchOrder} />
+                    )}
+                  </Stack>
+                </SectionCard>
+              ))
             )}
           </Stack>
-        </SectionCard>
-      ))
-    )}
-  </Stack>
-)}
+        )}
       </Container>
     </Box>
   );

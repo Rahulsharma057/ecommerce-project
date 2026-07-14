@@ -20,6 +20,9 @@ const advertisementRoutes = require("./routes/advertisementRoutes");
 const affiliateRoutes = require("./routes/affiliateRoutes");
 const modelShowcaseRoutes = require("./routes/modelShowcaseRoutes");
 const fashionSectionRoutes = require("./routes/fashionSectionRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+const paymentWebhookRoutes =
+require("./routes/paymentWebhookRoutes");
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use(
   cors({
@@ -38,9 +41,15 @@ app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/users", userRoutes);
 app.use("/api/advertisements", advertisementRoutes);
 app.use("/api/coupons", require("./routes/couponRoutes"));
+app.use(
+"/api/payment/webhook",
+paymentWebhookRoutes
+);
 app.use("/api/newsletter", newsletterRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/model-showcase", modelShowcaseRoutes);
+app.use("/api/attributes", require("./routes/attributeRoutes"));
+app.use("/api/payment", paymentRoutes);
 app.use("/api/fashion-section", fashionSectionRoutes);
 app.use("/api/affiliate", affiliateRoutes);
 app.use("/api/press", pressRoutes);

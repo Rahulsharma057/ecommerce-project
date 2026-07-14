@@ -2,75 +2,40 @@ const Cart = require("../models/Cart");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 
-
-const validateCartStock = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const cart = await Cart.find({ userId }).populate("productId");
-
-    let outOfStockItems = [];
-    let adjustedCart = [];
-
-    for (let item of cart) {
-      const product = item.productId;
-
-      if (!product) continue;
-
-      // ❌ out of stock
-      if (product.stock === 0) {
-        outOfStockItems.push({
-          productId: product._id,
-          name: product.name,
-          available: 0,
-        });
-        continue;
-      }
-
-      // ⚠️ less stock than cart quantity
-      if (item.quantity > product.stock) {
-        adjustedCart.push({
-          productId: product._id,
-          name: product.name,
-          requested: item.quantity,
-          available: product.stock,
-          correctedQuantity: product.stock,
-        });
-      }
-    }
-
-    return res.json({
-      ok: outOfStockItems.length === 0 && adjustedCart.length === 0,
-      outOfStockItems,
-      adjustedCart,
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
 // ADD TO CART
 const addToCart = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { productId, quantity } = req.body;
+    // FIX: color/size now accepted from the request body — before, these
+    // were silently dropped even if the frontend sent them.
+    const { productId, quantity, color = "", size = "" } = req.body;
 
-    const existing = await Cart.findOne({ userId, productId });
+    if (!productId) {
+      return res.status(400).json({ error: "productId is required" });
+    }
+
+    // Same product + same color + same size = same cart line (quantity bumps).
+    // Same product but different color/size = a NEW separate cart line.
+    const existing = await Cart.findOne({ userId, productId, color, size });
 
     if (existing) {
       existing.quantity += quantity || 1;
       await existing.save();
 
-      return res.json({ message: "Updated", cart: existing });
+      const populated = await existing.populate("productId");
+      return res.json({ message: "Updated", cart: populated });
     }
 
     const cart = await Cart.create({
       userId,
       productId,
-      quantity
+      quantity: quantity || 1,
+      color,
+      size,
     });
 
-    res.status(201).json(cart);
+    const populated = await cart.populate("productId");
+    res.status(201).json(populated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -129,9 +94,9 @@ const updateCart = async (req, res) => {
   }
 };
 
-
-
-exports.validateCartStock = async (req, res) => {
+// VALIDATE CART STOCK (before checkout) — also auto-corrects quantities
+// that now exceed available stock, and drops fully out-of-stock items.
+const validateCartStock = async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -147,10 +112,11 @@ exports.validateCartStock = async (req, res) => {
 
       if (product.stock === 0) {
         changes.push({
-          productId: item.productId._id,
+          productId: product._id,
           message: `${product.name} is out of stock`,
           removed: true,
         });
+        await Cart.findByIdAndDelete(item._id);
         continue;
       }
 
@@ -163,17 +129,14 @@ exports.validateCartStock = async (req, res) => {
         });
 
         item.quantity = product.stock;
+        await item.save();
       }
 
       updatedCart.push(item);
     }
 
-    // save updated quantities
-    for (let item of updatedCart) {
-      await item.save();
-    }
-
     res.json({
+      ok: changes.length === 0,
       cart: updatedCart,
       changes,
     });
@@ -182,11 +145,10 @@ exports.validateCartStock = async (req, res) => {
   }
 };
 
-
-
-// 🔥 IMPORTANT EXPORT
 module.exports = {
   addToCart,
   getCart,
-  removeFromCart,updateCart ,validateCartStock
+  removeFromCart,
+  updateCart,
+  validateCartStock,
 };

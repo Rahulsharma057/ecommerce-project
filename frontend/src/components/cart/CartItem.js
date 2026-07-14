@@ -6,7 +6,7 @@ import {
   IconButton,
   Stack,
   Avatar,
-  Paper,
+  Paper,Chip
 } from "@mui/material";
 import { useState } from "react";
 import ConfirmationDialog from "@/components/common/ConfirmationDialog";
@@ -56,6 +56,32 @@ export default function CartItem({ item, onRemove, onIncrease, onDecrease }) {
             </Typography>
           </Box>
         </Stack>
+
+        <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
+  {item.color && (
+    <Chip
+      label={`Color: ${item.color}`}
+      size="small"
+      variant="outlined"
+      sx={{
+        fontSize: 12,
+        height: 26,
+      }}
+    />
+  )}
+
+  {item.size && (
+    <Chip
+      label={`Size: ${item.size}`}
+      size="small"
+      variant="outlined"
+      sx={{
+        fontSize: 12,
+        height: 26,
+      }}
+    />
+  )}
+</Stack>
 
         {/* RIGHT */}
         <Stack direction="row" spacing={1} alignItems="center">

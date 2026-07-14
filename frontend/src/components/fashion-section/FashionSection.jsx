@@ -32,13 +32,9 @@ export default function FashionSection() {
     fetchData();
   }, []);
 
-  if (!sections.length) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" py={15}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+ if (!sections.length) {
+ return null;
+}
 
   return (
     <>

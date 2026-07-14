@@ -51,13 +51,9 @@ export default function AdvertisementBanner() {
     return () => clearInterval(interval);
   }, [ads]);
 
-  if (loading) {
-    return (
-      <Box py={6} display="flex" justifyContent="center">
-        <CircularProgress />
-      </Box>
-    );
-  }
+if (loading) {
+ return null;
+}
 
   if (!ads.length) return null;
 
