@@ -1,6 +1,5 @@
 const nodemailer = require("nodemailer");
-console.log("SMTP USER:", process.env.SMTP_USER);
-console.log("SMTP PASS:", process.env.SMTP_PASS?.slice(0,10));
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT,
@@ -14,3 +13,5 @@ const transporter = nodemailer.createTransport({
 transporter.verify((err, success) => {
   console.log(err || success);
 });
+
+module.exports = transporter;   // 👈 YE LINE MISSING HAI, ADD KARO
