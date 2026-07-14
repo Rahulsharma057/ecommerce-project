@@ -23,6 +23,8 @@ const affiliateRoutes = require("./routes/affiliateRoutes");
 const modelShowcaseRoutes = require("./routes/modelShowcaseRoutes");
 const fashionSectionRoutes = require("./routes/fashionSectionRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
+const testMail = require("./routes/testMail");
+
 const paymentWebhookRoutes =
 require("./routes/paymentWebhookRoutes");
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -40,8 +42,11 @@ app.use("/api/home-collections", homeCollectionRoutes);
 app.use("/api/category-highlights", categoryHighlightRoutes);
 app.use("/api/lookbook", lookbookRoutes);
 app.use("/api/auth", require("./routes/authRoutes"));
+
 app.use("/api/users", userRoutes);
 app.use("/api/advertisements", advertisementRoutes);
+
+app.use("/api/test-mail", testMail);
 app.use("/api/coupons", require("./routes/couponRoutes"));
 app.use(
 "/api/payment/webhook",
