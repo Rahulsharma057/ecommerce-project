@@ -4,18 +4,20 @@ const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
   secure: false,
-  family: 4,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  tls: {
+    rejectUnauthorized: false,
+  },
 });
 
-transporter.verify((err, success) => {
+transporter.verify((err) => {
   if (err) {
-    console.error("SMTP VERIFY ERROR:", err);
+    console.log("SMTP ERROR", err);
   } else {
-    console.log("SMTP Ready");
+    console.log("SMTP READY");
   }
 });
 
