@@ -11,8 +11,8 @@ export default function CategoryCard({
 
   return (
     <Box
-          onClick={onClick}
-   //   onClick={() => router.push(item.buttonLink)}
+          //onClick={onClick}
+     onClick={() => router.push(item.buttonLink)}
       sx={{
       
         cursor: "pointer",
