@@ -146,7 +146,7 @@ exports.getProducts = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const { search = "", category = "", subCategory = "", type = "", status = "", admin } = req.query;
+    const { search = "", category = "", subCategory = "", type = "", status = "", admin,sort = "", } = req.query;
 
     let query = {};
 
@@ -176,10 +176,27 @@ exports.getProducts = async (req, res) => {
     } else {
       query.status = "Active";
     }
+let sortOption = { createdAt: -1 };
 
+switch (sort) {
+  case "priceLow":
+    sortOption = { price: 1 };
+    break;
+
+  case "priceHigh":
+    sortOption = { price: -1 };
+    break;
+
+  case "name":
+    sortOption = { name: 1 };
+    break;
+
+  default:
+    sortOption = { createdAt: -1 };
+}
     const products = await Product.find(query)
       .select("-costPrice")
-      .sort({ createdAt: -1 })
+      .sort(sortOption)
       .skip(skip)
       .limit(limit);
 

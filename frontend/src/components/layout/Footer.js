@@ -75,35 +75,35 @@ export default function Footer() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
-const handleSubscribe = async () => {
-  if (!email.trim()) {
-    alert("Please enter email");
-    return;
-  }
+  const handleSubscribe = async () => {
+    if (!email.trim()) {
+      alert("Please enter email");
+      return;
+    }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!emailRegex.test(email)) {
-    alert("Please enter a valid email");
-    return;
-  }
+    if (!emailRegex.test(email)) {
+      alert("Please enter a valid email");
+      return;
+    }
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const res = await subscribeNewsletter({
-      email,
-    });
+      const res = await subscribeNewsletter({
+        email,
+      });
 
-    alert(res.data.message);
+      alert(res.data.message);
 
-    setEmail("");
-  } catch (err) {
-    alert(err.response?.data?.message || "Something went wrong");
-  } finally {
-    setLoading(false);
-  }
-};
+      setEmail("");
+    } catch (err) {
+      alert(err.response?.data?.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <Box
       sx={{ bgcolor: "#0D0D0D", color: "#fff", pt: { xs: 6, md: 8 }, pb: 4 }}
@@ -244,11 +244,11 @@ const handleSubscribe = async () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => {
-    if (e.key === "Enter") {
-      handleSubscribe();
-    }
-  }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSubscribe();
+                  }
+                }}
                 placeholder="your@email.com"
                 sx={{
                   flex: 1,

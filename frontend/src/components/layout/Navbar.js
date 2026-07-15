@@ -26,10 +26,10 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import CloseIcon from "@mui/icons-material/Close";
-import ShoppingBagOutlinedIcon from "@mui/icons-material/ShoppingBagOutlined";
+import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import FavoriteBorderOutlinedIcon from "@mui/icons-material/FavoriteBorderOutlined";
 import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
-import ListAltOutlinedIcon from "@mui/icons-material/ListAltOutlined";
+import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
@@ -45,18 +45,61 @@ import { toast } from "react-toastify";
 
 const NAV_LINKS = [
   { label: "Home", href: "/", icon: <HomeOutlinedIcon fontSize="small" /> },
-  { label: "Women", href: "/products?category=Women", icon: <Inventory2OutlinedIcon fontSize="small" /> },
-  { label: "Men", href: "/products?category=Men", icon: <Inventory2OutlinedIcon fontSize="small" /> },
-  { label: "New Arrivals", href: "/products?type=new-arrivals", icon: <NewReleasesOutlinedIcon fontSize="small" /> },
-  { label: "Sale", href: "/products?type=sale", icon: <LocalOfferOutlinedIcon fontSize="small" /> },
-  { label: "Products", href: "/products", icon: <Inventory2OutlinedIcon fontSize="small" /> },
+  {
+    label: "Women",
+    href: "/products?category=Women",
+    icon: <Inventory2OutlinedIcon fontSize="small" />,
+  },
+  {
+    label: "Men",
+    href: "/products?category=Men",
+    icon: <Inventory2OutlinedIcon fontSize="small" />,
+  },
+  {
+    label: "New Arrivals",
+    href: "/products?type=new-arrivals",
+    icon: <NewReleasesOutlinedIcon fontSize="small" />,
+  },
+  {
+    label: "Sale",
+    href: "/products?type=sale",
+    icon: <LocalOfferOutlinedIcon fontSize="small" />,
+  },
+  {
+    label: "Products",
+    href: "/products",
+    icon: <Inventory2OutlinedIcon fontSize="small" />,
+  },
 ];
+
+const safeGetItem = (key) => {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(key);
+  } catch (err) {
+    console.error("localStorage read error:", err);
+    return null;
+  }
+};
+
+const safeJsonParse = (value, fallback = null) => {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    console.error("JSON parse error:", err);
+    return fallback;
+  }
+};
 
 export default function Navbar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const router = useRouter();
-  const cartItems = useSelector((state) => state.cart.items);
-  const wishlistItems = useSelector((state) => state.wishlist.items);
+
+  // 🔐 crash-safe selectors: fall back to [] if slice/items is undefined
+  // (e.g. store not rehydrated yet), so `.length` never throws.
+  const cartItems = useSelector((state) => state.cart?.items) || [];
+  const wishlistItems = useSelector((state) => state.wishlist?.items) || [];
 
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState(null);
@@ -73,8 +116,8 @@ export default function Navbar() {
 
   useEffect(() => {
     const syncUser = () => {
-      const storedUser = localStorage.getItem("user");
-      setUser(storedUser ? JSON.parse(storedUser) : null);
+      const storedUser = safeGetItem("user");
+      setUser(safeJsonParse(storedUser));
     };
 
     syncUser();
@@ -91,8 +134,12 @@ export default function Navbar() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    try {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+    } catch (err) {
+      console.error("localStorage clear error:", err);
+    }
     window.dispatchEvent(new Event("userChanged"));
     setUser(null);
     setLogoutOpen(false);
@@ -123,7 +170,7 @@ export default function Navbar() {
         aria-label="Wishlist"
       >
         <Badge badgeContent={wishlistItems.length} color="error">
-          <FavoriteBorderOutlinedIcon fontSize="small" />
+          <FavoriteBorderOutlinedIcon sx={{color:"rgba(36, 36, 36, 0.92)"}} fontSize="small" />
         </Badge>
       </IconButton>
 
@@ -133,10 +180,10 @@ export default function Navbar() {
         size="small"
         aria-label="My Orders"
       >
-        <ListAltOutlinedIcon fontSize="small" />
+        <LocalShippingOutlinedIcon  sx={{color:"rgba(42, 42, 42, 0.92)"}}  fontSize="small" />
       </IconButton>
 
-    {/*   <IconButton
+      {/*   <IconButton
         component={Link}
         href="/profile"
         size="small"
@@ -147,7 +194,7 @@ export default function Navbar() {
 
       <IconButton component={Link} href="/cart" size="small" aria-label="Cart">
         <Badge badgeContent={cartItems.length} color="error">
-          <ShoppingBagOutlinedIcon fontSize="small" />
+          <ShoppingCartOutlinedIcon  sx={{color:"rgba(42, 42, 42, 0.92)"}}  fontSize="small" />
         </Badge>
       </IconButton>
 
@@ -319,7 +366,7 @@ export default function Navbar() {
             <Stack
               direction="row"
               alignItems="center"
-              spacing={0.25}
+              spacing={0.1}
               sx={{
                 flexShrink: 0,
                 maxWidth: "100%",
@@ -334,7 +381,6 @@ export default function Navbar() {
                   sx={{
                     alignItems: "center",
                     flexShrink: 0,
-                    flexWrap: "nowrap",
                     ml: 0.5,
                   }}
                 >
@@ -353,34 +399,32 @@ export default function Navbar() {
                       Admin
                     </Button>
                   )}
+
                   <Tooltip title={user.name}>
                     <Button
                       component={Link}
                       href="/profile"
                       size="small"
-                      variant="outlined"
                       sx={{
                         display: { xs: "none", md: "inline-flex" },
-                        borderRadius: "50%",
                         minWidth: 36,
                         width: 36,
-                        border: "none",
                         height: 36,
+                        borderRadius: "50%",
                         p: 0,
-                        color: "white",
-                        fontWeight: 700,
                         bgcolor: "#858282",
+                        color: "#fff",
+                        fontWeight: 700,
+
                         "&:hover": {
-                          backgroundColor: "black",
-                          boxShadow: "none",
-                          color: "#ffffff",
-                          border: "1px solid black",
+                          bgcolor: "#000",
                         },
                       }}
                     >
                       {getInitial(user.name)}
                     </Button>
                   </Tooltip>
+
                   <Button
                     size="small"
                     color="error"
@@ -395,18 +439,26 @@ export default function Navbar() {
                   </Button>
                 </Stack>
               ) : (
+                // 🔥 USER NOT LOGIN
                 <Button
                   component={Link}
                   href="/login"
                   size="small"
-                  variant="outlined"
+                  variant="contained"
                   sx={{
-                    display: { xs: "none", md: "inline-flex" },
+                    display: "inline-flex",
                     ml: 1,
-                    fontSize: 13,
-                    fontWeight: 500,
-                    borderRadius: 2,
-                    px: 2,
+                    px: 1,
+                    py: 0.5,
+                    bgcolor: "#262626",
+                    color: "#fff",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    borderRadius: 1,
+
+                    "&:hover": {
+                      bgcolor: "#000",
+                    },
                   }}
                 >
                   Login
@@ -572,7 +624,9 @@ export default function Navbar() {
             ))}
           </List>
 
-          <Divider sx={{ mx: 2, borderColor: "divider", opacity: 0.6, my: 1 }} />
+          <Divider
+            sx={{ mx: 2, borderColor: "divider", opacity: 0.6, my: 1 }}
+          />
 
           {/* Account section */}
           <List sx={{ px: 1.5 }}>
@@ -599,7 +653,7 @@ export default function Navbar() {
               sx={{ borderRadius: 2, mb: 0.25, py: 1, px: 1.5 }}
             >
               <ListItemIcon sx={{ minWidth: 34, color: "text.secondary" }}>
-                <ListAltOutlinedIcon fontSize="small" />
+                <LocalShippingOutlinedIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText
                 primary="My Orders"
@@ -632,7 +686,7 @@ export default function Navbar() {
             >
               <ListItemIcon sx={{ minWidth: 34, color: "text.secondary" }}>
                 <Badge badgeContent={cartItems.length} color="error">
-                  <ShoppingBagOutlinedIcon fontSize="small" />
+                  <ShoppingCartOutlinedIcon fontSize="small" />
                 </Badge>
               </ListItemIcon>
               <ListItemText
@@ -640,8 +694,6 @@ export default function Navbar() {
                 primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
               />
             </ListItemButton>
-
-            
 
             {user?.role === "admin" && (
               <ListItemButton

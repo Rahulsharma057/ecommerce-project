@@ -18,13 +18,6 @@ import {
   TextField,
   Checkbox,
 } from "@mui/material";
-import {
-  TimelineItem,
-  TimelineSeparator,
-  TimelineDot,
-  TimelineConnector,
-  TimelineContent,
-} from "@mui/lab";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -41,6 +34,10 @@ import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import PaymentOutlinedIcon from "@mui/icons-material/PaymentOutlined";
+import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
+import HourglassEmptyOutlinedIcon from "@mui/icons-material/HourglassEmptyOutlined";
+import ErrorOutlineOutlinedIcon from "@mui/icons-material/ErrorOutlineOutlined";
+import ReplayOutlinedIcon from "@mui/icons-material/ReplayOutlined";
 import { API_URL } from "@/lib/api";
 
 const STEP_ICONS = {
@@ -67,6 +64,16 @@ const REFUND_STATUS_STYLES = {
   Completed: { bg: "#f0fdf4", color: "#15803d", label: "Refund Completed" },
 };
 
+// Payment status → visual language. Kept in the same restrained zinc/black
+// system as the rest of the page instead of MUI's default red/green/amber,
+// so it reads as one product instead of a bolted-on component.
+const PAYMENT_STATUS_STYLES = {
+  Paid: { bg: "#f0fdf4", border: "#bbf7d0", color: "#15803d", icon: VerifiedOutlinedIcon, label: "Paid" },
+  Pending: { bg: "#fffbeb", border: "#fde68a", color: "#b45309", icon: HourglassEmptyOutlinedIcon, label: "Pending" },
+  Failed: { bg: "#fef2f2", border: "#fecaca", color: "#b91c1c", icon: ErrorOutlineOutlinedIcon, label: "Failed" },
+  Refunded: { bg: "#eff6ff", border: "#bfdbfe", color: "#1d4ed8", icon: ReplayOutlinedIcon, label: "Refunded" },
+};
+
 // Consistent section heading used across the page
 function SectionHeading({ icon: Icon, children }) {
   return (
@@ -74,6 +81,29 @@ function SectionHeading({ icon: Icon, children }) {
       {Icon && <Icon sx={{ color: "#71717a", fontSize: 20 }} />}
       <Typography sx={{ fontWeight: 700, fontSize: 15, color: "#18181b" }}>
         {children}
+      </Typography>
+    </Stack>
+  );
+}
+
+// Shared row for the Payment Details card — label left, value right,
+// same pattern the rest of the page already uses for price breakdown etc.
+function DetailRow({ label, value, mono = false }) {
+  if (value === undefined || value === null || value === "") return null;
+  return (
+    <Stack direction="row" justifyContent="space-between" alignItems="center" gap={2}>
+      <Typography sx={{ fontSize: 13.5, color: "#71717a" }}>{label}</Typography>
+      <Typography
+        sx={{
+          fontSize: mono ? 12.5 : 13.5,
+          fontWeight: mono ? 500 : 600,
+          color: "#18181b",
+          fontFamily: mono ? "monospace" : "inherit",
+          textAlign: "right",
+          wordBreak: "break-all",
+        }}
+      >
+        {value}
       </Typography>
     </Stack>
   );
@@ -199,7 +229,17 @@ export default function OrderDetailsPage() {
     }
   };
 
-  if (!order) return <Container sx={{ py: 5 }}>Loading...</Container>;
+  if (!order) {
+    return (
+      <Container maxWidth="lg" sx={{ py: { xs: 4, sm: 6 } }}>
+        <Stack spacing={2}>
+          <Box sx={{ height: 28, width: 180, borderRadius: 1, bgcolor: "#f4f4f5" }} />
+          <Box sx={{ height: 220, borderRadius: 3, bgcolor: "#f4f4f5" }} />
+          <Box sx={{ height: 140, borderRadius: 3, bgcolor: "#f4f4f5" }} />
+        </Stack>
+      </Container>
+    );
+  }
 
   // Item ids that are NOT eligible for a new return: cancelled ones,
   // or ones already inside an active/completed return batch. Items from
@@ -428,6 +468,10 @@ export default function OrderDetailsPage() {
   // label never appeared even when a return history existed.
   const hasReturnHistory = (order.returns || []).length > 0;
 
+  const paymentStyle =
+    PAYMENT_STATUS_STYLES[order.paymentStatus] || PAYMENT_STATUS_STYLES.Pending;
+  const PaymentIcon = paymentStyle.icon;
+
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 5 } }}>
       {/* HEADER */}
@@ -651,242 +695,198 @@ export default function OrderDetailsPage() {
             </Typography>
           )}
         </Box>
-<Paper
-  elevation={0}
-  sx={{
-    p: 3,
-    mt: 2,
-    borderRadius: 3,
-    border: "1px solid #e5e7eb",
-  }}
->
-  <Typography variant="h6" fontWeight={700} mb={2}>
-    Payment Details
-  </Typography>
 
-  <Stack spacing={1.5}>
+        <Divider sx={{ my: 3, borderColor: "#f4f4f5" }} />
 
-    <Box display="flex" justifyContent="space-between">
-      <Typography color="text.secondary">
-        Payment Method
-      </Typography>
+        {/* PAYMENT DETAILS — redesigned to match the zinc/black system used
+            everywhere else on this page instead of MUI's default
+            red/green/amber Chip colors, and the broken standalone
+            Timeline components (which need a <Timeline> parent to render)
+            have been replaced with a simple status banner. */}
+        <Box>
+          <SectionHeading icon={PaymentOutlinedIcon}>Payment Details</SectionHeading>
 
-      <Typography fontWeight={600}>
-        {order.paymentMethod}
-      </Typography>
-    </Box>
+          <Box
+            sx={{
+              borderRadius: 2,
+              border: "1px solid #f4f4f5",
+              bgcolor: "#fafafa",
+              overflow: "hidden",
+            }}
+          >
+            {/* Status strip */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                px: 2.5,
+                py: 1.75,
+                bgcolor: paymentStyle.bg,
+                borderBottom: "1px solid",
+                borderColor: paymentStyle.border,
+              }}
+            >
+              <PaymentIcon sx={{ fontSize: 19, color: paymentStyle.color }} />
+              <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: paymentStyle.color }}>
+                Payment {paymentStyle.label}
+              </Typography>
+              {order.paymentStatus === "Paid" && order.paymentVerifiedAt && (
+                <Typography sx={{ fontSize: 12, color: paymentStyle.color, opacity: 0.8, ml: "auto" }}>
+                  {new Date(order.paymentVerifiedAt).toLocaleString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </Typography>
+              )}
+            </Box>
 
-    <Box display="flex" justifyContent="space-between">
-      <Typography color="text.secondary">
-        Payment Status
-      </Typography>
+            <Stack spacing={1.5} sx={{ px: 2.5, py: 2.25 }}>
+              <DetailRow label="Payment Method" value={order.paymentMethod} />
+              <DetailRow
+                label="Amount Paid"
+                value={`₹${(order.totalAmount || 0).toLocaleString()}`}
+              />
+              {order.paymentChannel && (
+                <DetailRow label="Payment Mode" value={order.paymentChannel.toUpperCase()} />
+              )}
+              {order.razorpayPaymentId && (
+                <DetailRow label="Transaction ID" value={order.razorpayPaymentId} mono />
+              )}
+            </Stack>
 
-      <Chip
-        label={order.paymentStatus}
-        color={
-          order.paymentStatus === "Paid"
-            ? "success"
-            : order.paymentStatus === "Failed"
-            ? "error"
-            : order.paymentStatus === "Refunded"
-            ? "warning"
-            : "default"
-        }
-      />
-    </Box>
+            {order.paymentStatus === "Refunded" && order.refundedAmount > 0 && (
+              <Box
+                sx={{
+                  mx: 2.5,
+                  mb: 2.25,
+                  p: 1.5,
+                  borderRadius: 1.5,
+                  bgcolor: "#eff6ff",
+                  border: "1px solid #bfdbfe",
+                }}
+              >
+                <Typography sx={{ fontSize: 13, color: "#1d4ed8", fontWeight: 500 }}>
+                  ₹{order.refundedAmount.toLocaleString()} has been refunded to your original
+                  payment method.
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Box>
 
-    <Box display="flex" justifyContent="space-between">
-      <Typography color="text.secondary">
-        Amount Paid
-      </Typography>
-
-      <Typography fontWeight={700}>
-        ₹{order.totalAmount}
-      </Typography>
-    </Box>
-
-    <Box display="flex" justifyContent="space-between">
-      <Typography color="text.secondary">
-        Paid On
-      </Typography>
-
-      <Typography>
-        {order.paymentVerifiedAt
-          ? new Date(order.paymentVerifiedAt).toLocaleString("en-IN")
-          : "--"}
-      </Typography>
-    </Box>
-
-    {order.paymentChannel && (
-      <Box display="flex" justifyContent="space-between">
-        <Typography color="text.secondary">
-          Payment Mode
-        </Typography>
-
-        <Typography>
-          {order.paymentChannel.toUpperCase()}
-        </Typography>
-      </Box>
-    )}
-
-    {order.razorpayPaymentId && (
-      <Box display="flex" justifyContent="space-between">
-        <Typography color="text.secondary">
-          Transaction ID
-        </Typography>
-
-        <Typography fontSize={13}>
-          {order.razorpayPaymentId}
-        </Typography>
-      </Box>
-    )}
-
-    {
-  order.paymentStatus === "Paid" && (
-    <TimelineItem>
-      <TimelineSeparator>
-        <TimelineDot color="success" />
-        <TimelineConnector />
-      </TimelineSeparator>
-
-      <TimelineContent>
-        <Typography fontWeight={600}>
-          Payment Successful
-        </Typography>
-
-        <Typography variant="body2">
-          ₹{order.totalAmount} received successfully.
-        </Typography>
-
-        <Typography variant="caption">
-          {new Date(order.paymentVerifiedAt).toLocaleString("en-IN")}
-        </Typography>
-      </TimelineContent>
-    </TimelineItem>
-  )
-}
-
-{
-  order.paymentStatus === "Refunded" && (
-    <Alert severity="success" sx={{ mt: 2 }}>
-      ₹{order.refundedAmount} has been refunded to your original payment method.
-    </Alert>
-  )
-}
-
-  </Stack>
-</Paper>
         <Divider sx={{ my: 3, borderColor: "#f4f4f5" }} />
 
         {/* PRODUCTS */}
-{/* PRODUCTS */}
-<SectionHeading>Products ({order.items?.length || 0})</SectionHeading>
+        <SectionHeading>Products ({order.items?.length || 0})</SectionHeading>
 
-<Stack spacing={1.5}>
-  {(order.items || []).map((item) => {
-    const product = item.productId; // populated product object (may be null if deleted)
+        <Stack spacing={1.5}>
+          {(order.items || []).map((item) => {
+            const product = item.productId; // populated product object (may be null if deleted)
 
-    return (
-      <Box
-        key={item._id}
-        sx={{
-          p: 1.5,
-          borderRadius: 2,
-          display: "flex",
-          alignItems: "center",
-          gap: 2,
-          border: "1px solid #f4f4f5",
-          flexWrap: "wrap",
-        }}
-      >
-        <Avatar
-          src={item.image}
-          variant="rounded"
-          sx={{
-            width: 56,
-            height: 56,
-            borderRadius: 2,
-            bgcolor: "#f4f4f5",
-            border: "1px solid #e4e4e7",
-            flexShrink: 0,
-          }}
-        >
-          <ImageOutlinedIcon sx={{ fontSize: 20, color: "#a1a1aa" }} />
-        </Avatar>
+            return (
+              <Box
+                key={item._id}
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                  border: "1px solid #f4f4f5",
+                  flexWrap: "wrap",
+                }}
+              >
+                <Avatar
+                  src={item.image}
+                  variant="rounded"
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 2,
+                    bgcolor: "#f4f4f5",
+                    border: "1px solid #e4e4e7",
+                    flexShrink: 0,
+                  }}
+                >
+                  <ImageOutlinedIcon sx={{ fontSize: 20, color: "#a1a1aa" }} />
+                </Avatar>
 
-        <Box sx={{ flex: 1, minWidth: 200 }}>
-          <Typography noWrap sx={{ fontWeight: 600, fontSize: 14, color: "#18181b" }}>
-            {item.name}
-          </Typography>
+                <Box sx={{ flex: 1, minWidth: 200 }}>
+                  <Typography noWrap sx={{ fontWeight: 600, fontSize: 14, color: "#18181b" }}>
+                    {item.name}
+                  </Typography>
 
-          {/* Brand · Category · Sub-category — from the populated product */}
-          {product && (product.brand || product.category) && (
-            <Typography sx={{ fontSize: 11.5, color: "#a1a1aa", mt: 0.2 }}>
-              {[product.brand, product.category, product.subCategory].filter(Boolean).join(" · ")}
+                  {/* Brand · Category · Sub-category — from the populated product */}
+                  {product && (product.brand || product.category) && (
+                    <Typography sx={{ fontSize: 11.5, color: "#a1a1aa", mt: 0.2 }}>
+                      {[product.brand, product.category, product.subCategory].filter(Boolean).join(" · ")}
+                    </Typography>
+                  )}
+
+                  {/* Fabric */}
+                  {product?.fabric && (
+                    <Typography sx={{ fontSize: 11.5, color: "#a1a1aa" }}>
+                      Fabric: {product.fabric}
+                    </Typography>
+                  )}
+
+                  <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
+                    {item.color && (
+                      <Chip
+                        label={`Color: ${item.color}`}
+                        size="small"
+                        sx={{ height: 20, fontSize: 11, bgcolor: "#f4f4f5", color: "#52525b" }}
+                      />
+                    )}
+                    {item.size && (
+                      <Chip
+                        label={`Size: ${item.size}`}
+                        size="small"
+                        sx={{ height: 20, fontSize: 11, bgcolor: "#f4f4f5", color: "#52525b" }}
+                      />
+                    )}
+                    <Chip
+                      label={`Qty: ${item.quantity}`}
+                      size="small"
+                      sx={{ height: 20, fontSize: 11, bgcolor: "#f4f4f5", color: "#52525b" }}
+                    />
+                    {product?.sku && (
+                      <Chip
+                        label={`SKU: ${product.sku}`}
+                        size="small"
+                        variant="outlined"
+                        sx={{ height: 20, fontSize: 11, borderColor: "#e4e4e7", color: "#71717a" }}
+                      />
+                    )}
+                  </Stack>
+                </Box>
+
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: 14.5,
+                    color: "#18181b",
+                    flexShrink: 0,
+                    textAlign: "right",
+                  }}
+                >
+                  ₹{(item.price * item.quantity).toLocaleString()}
+                </Typography>
+              </Box>
+            );
+          })}
+
+          {(!order.items || order.items.length === 0) && (
+            <Typography sx={{ fontSize: 13.5, color: "#a1a1aa" }}>
+              No products found for this order.
             </Typography>
           )}
+        </Stack>
 
-          {/* Fabric */}
-          {product?.fabric && (
-            <Typography sx={{ fontSize: 11.5, color: "#a1a1aa" }}>
-              Fabric: {product.fabric}
-            </Typography>
-          )}
-
-          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
-            {/* Selected color/size — only shows once the order actually
-                stores what the customer picked (see note below the code) */}
-            {item.color && (
-              <Chip
-                label={`Color: ${item.color}`}
-                size="small"
-                sx={{ height: 20, fontSize: 11, bgcolor: "#f4f4f5", color: "#52525b" }}
-              />
-            )}
-            {item.size && (
-              <Chip
-                label={`Size: ${item.size}`}
-                size="small"
-                sx={{ height: 20, fontSize: 11, bgcolor: "#f4f4f5", color: "#52525b" }}
-              />
-            )}
-            <Chip
-              label={`Qty: ${item.quantity}`}
-              size="small"
-              sx={{ height: 20, fontSize: 11, bgcolor: "#f4f4f5", color: "#52525b" }}
-            />
-            {product?.sku && (
-              <Chip
-                label={`SKU: ${product.sku}`}
-                size="small"
-                variant="outlined"
-                sx={{ height: 20, fontSize: 11, borderColor: "#e4e4e7", color: "#71717a" }}
-              />
-            )}
-          </Stack>
-        </Box>
-
-        <Typography
-          sx={{
-            fontWeight: 700,
-            fontSize: 14.5,
-            color: "#18181b",
-            flexShrink: 0,
-            textAlign: "right",
-          }}
-        >
-          ₹{(item.price * item.quantity).toLocaleString()}
-        </Typography>
-      </Box>
-    );
-  })}
-
-  {(!order.items || order.items.length === 0) && (
-    <Typography sx={{ fontSize: 13.5, color: "#a1a1aa" }}>
-      No products found for this order.
-    </Typography>
-  )}
-</Stack>
         <Divider sx={{ my: 3, borderColor: "#f4f4f5" }} />
 
         {/* PRICE BREAKDOWN */}
@@ -1630,20 +1630,20 @@ export default function OrderDetailsPage() {
                         return;
                       }
 
-     setReturnImages((prev) => {
-  const all = [...prev, ...files];
+                      setReturnImages((prev) => {
+                        const all = [...prev, ...files];
 
-  return all.filter(
-    (file, index, self) =>
-      index ===
-      self.findIndex(
-        (f) =>
-          f.name === file.name &&
-          f.size === file.size &&
-          f.lastModified === file.lastModified
-      )
-  );
-});
+                        return all.filter(
+                          (file, index, self) =>
+                            index ===
+                            self.findIndex(
+                              (f) =>
+                                f.name === file.name &&
+                                f.size === file.size &&
+                                f.lastModified === file.lastModified,
+                            ),
+                        );
+                      });
 
                       e.target.value = "";
                     }}

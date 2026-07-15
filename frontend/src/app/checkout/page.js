@@ -40,50 +40,65 @@ export default function CheckoutPage() {
   const [couponCode, setCouponCode] = useState("");
   const [confirmDialog, setConfirmDialog] = useState(false);
   const [payment, setPayment] = useState(null);
+
+  // Guard every arithmetic input — a malformed cart item (missing price/qty)
+  // should never turn the whole page into NaN/undefined instead of ₹0.
   const subtotal = items.reduce(
-    (acc, item) => acc + item.price * item.quantity,
+    (acc, item) => acc + (Number(item.price) || 0) * (Number(item.quantity) || 0),
     0,
   );
   const shipping = subtotal >= 2000 ? 0 : 99;
   const tax = Math.round(subtotal * 0.05);
   const total = Math.max(subtotal + shipping + tax - discount, 0);
 
-useEffect(() => {
-  if (!payment) return;
+  useEffect(() => {
+    if (!payment) return;
 
-  if (payment.razorpay?.enabled) {
-    setPaymentMethod("RAZORPAY");
-  } else if (payment.cod?.enabled) {
-    setPaymentMethod("COD");
-  }
-}, [payment]);
+    if (payment.razorpay?.enabled) {
+      setPaymentMethod("RAZORPAY");
+    } else if (payment.cod?.enabled) {
+      setPaymentMethod("COD");
+    }
+  }, [payment]);
 
   useEffect(() => {
     fetchAddresses();
+
+    // FIX: JSON.parse on stale/corrupted localStorage data used to throw
+    // uncaught inside this effect and take the whole page down to a blank
+    // white screen. Now it's wrapped and self-heals by clearing the bad key.
     const savedCoupon = localStorage.getItem("checkoutCoupon");
-
     if (savedCoupon) {
-      const data = JSON.parse(savedCoupon);
-
-      setCouponData(data.coupon);
-      setDiscount(data.discount);
-      setCouponCode(data.coupon.code);
+      try {
+        const data = JSON.parse(savedCoupon);
+        if (data?.coupon) {
+          setCouponData(data.coupon);
+          setDiscount(data.discount || 0);
+          setCouponCode(data.coupon.code || "");
+        }
+      } catch (err) {
+        console.log("Corrupted checkoutCoupon in localStorage, clearing it", err);
+        localStorage.removeItem("checkoutCoupon");
+      }
     }
+
     const buyNow = localStorage.getItem("buyNow");
-
-    console.log("RAW", buyNow);
     if (buyNow) {
-      const parsed = JSON.parse(buyNow);
+      try {
+        const parsed = JSON.parse(buyNow);
+        const parsedArray = Array.isArray(parsed) ? parsed : [];
 
-      console.log("PARSED", parsed);
+        const fixedItems = parsedArray.map((item) => ({
+          ...item,
+          quantity: Number(item.quantity) || 1,
+        }));
 
-      console.log("QUANTITY", parsed[0].quantity);
-      const fixedItems = parsed.map((item) => ({
-        ...item,
-        quantity: Number(item.quantity) || 1,
-      }));
-
-      setItems(fixedItems);
+        setItems(fixedItems);
+      } catch (err) {
+        console.log("Corrupted buyNow in localStorage, clearing it", err);
+        localStorage.removeItem("buyNow");
+        fetchCart();
+      }
     } else {
       fetchCart();
     }
@@ -91,16 +106,11 @@ useEffect(() => {
 
   const validateStock = () => {
     let updatedItems = [];
-    let hasChange = false;
 
     for (let item of items) {
       if (item.stock === 0) {
         toast.error(`${item.name} is out of stock`);
         return null;
-      }
-
-      if (item.quantity > item.stock) {
-        hasChange = true;
       }
 
       updatedItems.push({
@@ -109,21 +119,6 @@ useEffect(() => {
       });
     }
 
-    /*   if (hasChange) {
-      const msg =
-        "⚠️ Stock updated for some items:\n\n" +
-        items
-          .filter((i) => i.quantity > i.stock)
-          .map(
-            (i) =>
-              `${i.name}: only ${i.stock} available (you selected ${i.quantity})`,
-          )
-          .join("\n") +
-        "\n\nDo you want to continue?";
-
-     
-    }
- */
     return updatedItems;
   };
 
@@ -131,30 +126,41 @@ useEffect(() => {
     const loadPaymentSettings = async () => {
       try {
         const data = await getPaymentSettings();
-        console.log("Payment Settings:", data);
-        console.log("yoooo");
         setPayment(data);
       } catch (err) {
         toast.error("Unable to load payment methods");
       }
     };
-    console.log("uuuu");
     loadPaymentSettings();
   }, []);
-  const fetchCart = async () => {
-    try {
-      const token = localStorage.getItem("token");
 
+  const fetchCart = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    try {
       const res = await fetch(`${API_URL}/cart`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      const data = await res.json();
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        router.replace("/login");
+        return;
+      }
+      if (!res.ok) {
+        throw new Error("Failed to fetch cart");
+      }
 
+      const data = await res.json();
       const cartArray = Array.isArray(data) ? data : [];
-      console.log(cartArray);
+
       const correctedItems = cartArray.map((item) => {
         const stock = item.productId?.stock || 0;
 
@@ -177,7 +183,6 @@ useEffect(() => {
           stock,
         };
       });
-      console.log(correctedItems, "yoo");
       setItems(correctedItems);
     } catch (err) {
       console.log(err);
@@ -207,25 +212,51 @@ useEffect(() => {
     }
   }, [subtotal, couponData]);
 
+  // FIX: this had no try/catch and no res.ok / array check. A failed
+  // request or an expired-token error payload (e.g. { message: "..." })
+  // used to get set directly into `addresses`, and AddressList's internal
+  // .map() would then crash the whole checkout page with
+  // "addresses.map is not a function".
   const fetchAddresses = async () => {
     const token = localStorage.getItem("token");
+    if (!token) {
+      setAddresses([]);
+      return;
+    }
 
-    const res = await fetch(`${API_URL}/users/addresses`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    try {
+      const res = await fetch(`${API_URL}/users/addresses`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    const data = await res.json();
+      if (!res.ok) {
+        setAddresses([]);
+        return;
+      }
 
-    setAddresses(data);
+      const data = await res.json();
+      const addressArray = Array.isArray(data) ? data : [];
 
-    if (data.length > 0) {
-      setSelectedAddress(data[0]);
+      setAddresses(addressArray);
+
+      if (addressArray.length > 0) {
+        setSelectedAddress(addressArray[0]);
+      }
+    } catch (err) {
+      console.log("Failed to fetch addresses", err);
+      setAddresses([]);
+      toast.error("Unable to load your saved addresses.");
     }
   };
 
   const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      toast.warning("Please enter a coupon code.");
+      return;
+    }
+
     try {
       const token = localStorage.getItem("token");
 
@@ -241,10 +272,13 @@ useEffect(() => {
         }),
       });
 
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {}
 
       if (!res.ok) {
-        toast.error(data.message);
+        toast.error(data.message || "Failed to apply coupon");
         return;
       }
 
@@ -262,6 +296,7 @@ useEffect(() => {
       toast.success("Coupon applied successfully.");
     } catch (err) {
       console.log(err);
+      toast.error("Something went wrong while applying the coupon.");
     }
   };
 
@@ -306,10 +341,19 @@ useEffect(() => {
         }),
       });
 
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {}
 
       if (!res.ok) {
         toast.error(data.message || "Failed to place order");
+        return;
+      }
+
+      if (!data?._id) {
+        toast.error("Order placed but confirmation is delayed. Please check My Orders.");
+        router.push("/profile/orders");
         return;
       }
 
@@ -325,16 +369,6 @@ useEffect(() => {
       setPlacingOrder(false);
     }
   };
-  const removeCoupon = () => {
-    setCouponData(null);
-    setDiscount(0);
-    setCouponCode("");
-
-    localStorage.removeItem("appliedCoupon");
-    localStorage.removeItem("checkoutCoupon");
-
-    window.dispatchEvent(new Event("coupon-update"));
-  };
 
   useEffect(() => {
     const handleCouponUpdate = () => {
@@ -347,10 +381,19 @@ useEffect(() => {
         return;
       }
 
-      const data = JSON.parse(saved);
-
-      setCouponData(data.coupon);
-      setDiscount(data.discount);
+      try {
+        const data = JSON.parse(saved);
+        if (data?.coupon) {
+          setCouponData(data.coupon);
+          setDiscount(data.discount || 0);
+        }
+      } catch (err) {
+        console.log("Corrupted checkoutCoupon on coupon-update, clearing it", err);
+        localStorage.removeItem("checkoutCoupon");
+        setCouponData(null);
+        setDiscount(0);
+        setCouponCode("");
+      }
     };
 
     window.addEventListener("coupon-update", handleCouponUpdate);
@@ -445,45 +488,61 @@ useEffect(() => {
                 Payment Method
               </Typography>
 
-             <RadioGroup
-  value={paymentMethod}
-  onChange={(e) => setPaymentMethod(e.target.value)}
->
-  {payment?.cod?.enabled && (
-    <FormControlLabel
-      value="COD"
-      control={<Radio />}
-      label="Cash On Delivery"
-    />
-  )}
+              {!payment ? (
+                <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
+                  Loading payment options...
+                </Typography>
+              ) : !payment?.cod?.enabled && !payment?.razorpay?.enabled ? (
+                <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
+                  No payment methods are currently available. Please try again later.
+                </Typography>
+              ) : (
+                <>
+                  <RadioGroup
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  >
+                    {payment?.cod?.enabled && (
+                      <FormControlLabel
+                        value="COD"
+                        control={<Radio />}
+                        label="Cash On Delivery"
+                      />
+                    )}
 
-  {payment?.razorpay?.enabled && (
-    <FormControlLabel
-      value="RAZORPAY"
-      control={<Radio />}
-      label="Online Payment (UPI / Card / Wallet)"
-    />
-  )}
-</RadioGroup>
-              {paymentMethod === "RAZORPAY" && (
-                <RazorpayPaymentButton
-                 gatewayEnabled={payment?.razorpay?.enabled}
-    items={items}
-    shippingAddress={selectedAddress}
-    coupon={couponData?._id}
-    discount={discount}
-                  onSuccess={(order) => {
-                    localStorage.removeItem("buyNow");
-                    localStorage.removeItem("checkoutCoupon");
-                    localStorage.removeItem("appliedCoupon");
+                    {payment?.razorpay?.enabled && (
+                      <FormControlLabel
+                        value="RAZORPAY"
+                        control={<Radio />}
+                        label="Online Payment (UPI / Card / Wallet)"
+                      />
+                    )}
+                  </RadioGroup>
+                  {paymentMethod === "RAZORPAY" && (
+                    <RazorpayPaymentButton
+                      gatewayEnabled={payment?.razorpay?.enabled}
+                      items={items}
+                      shippingAddress={selectedAddress}
+                      coupon={couponData?._id}
+                      discount={discount}
+                      onSuccess={(order) => {
+                        localStorage.removeItem("buyNow");
+                        localStorage.removeItem("checkoutCoupon");
+                        localStorage.removeItem("appliedCoupon");
 
-                    window.dispatchEvent(new Event("cart-update"));
+                        window.dispatchEvent(new Event("cart-update"));
 
-                    toast.success("Payment Successful");
+                        toast.success("Payment Successful");
 
-                    router.push(`/profile/orders/${order._id}`);
-                  }}
-                />
+                        if (order?._id) {
+                          router.push(`/profile/orders/${order._id}`);
+                        } else {
+                          router.push("/profile/orders");
+                        }
+                      }}
+                    />
+                  )}
+                </>
               )}
             </Paper>
           </Grid>
@@ -509,11 +568,11 @@ useEffect(() => {
                 localStorage.removeItem("appliedCoupon");
               }}
               placingOrder={placingOrder}
-             onPlaceOrder={() => {
-  if (paymentMethod === "COD") {
-    setConfirmDialog(true);
-  }
-}}
+              onPlaceOrder={() => {
+                if (paymentMethod === "COD") {
+                  setConfirmDialog(true);
+                }
+              }}
             />
           </Grid>
         </Grid>
@@ -525,9 +584,7 @@ useEffect(() => {
 
 ✓ Delivery Address Selected
 ✓ Payment Method: ${
-         paymentMethod === "COD"
-  ? "Cash On Delivery"
-  : "Online Payment"
+          paymentMethod === "COD" ? "Cash On Delivery" : "Online Payment"
         }
 
 ✓ Total Amount: ₹${total}

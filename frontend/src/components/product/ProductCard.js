@@ -12,26 +12,29 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,Chip
+  DialogActions,
+  Chip,
 } from "@mui/material";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
-import { useDispatch } from "react-redux";
-import { addToWishlist } from "@/redux/slices/wishlistSlice";
 import { API_URL } from "@/lib/api";
 import { toast } from "react-toastify";
 
 export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
-  const dispatch = useDispatch();
   const router = useRouter();
   const [loginOpen, setLoginOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  // const [wishlistMap, setWishlistMap] = useState({});
   const isWishlisted = !!wishlistMap[product._id];
+
+  // MRP / discount — only show strike-through MRP when it's actually higher than price
+  const mrp = Number(product.originalPrice) || 0;
+  const price = Number(product.price) || 0;
+  const hasMrp = mrp > price;
+  const discountPercent = hasMrp ? Math.round(((mrp - price) / mrp) * 100) : 0;
 
   const handleWishlist = async (e) => {
     e.preventDefault();
@@ -61,7 +64,7 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
           },
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
           toast.error(data.message || "Failed to remove from wishlist");
@@ -90,7 +93,7 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
           }),
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
           toast.error(data.message || "Failed to add to wishlist");
@@ -139,7 +142,7 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         toast.error(data.message || "Failed to add to cart");
@@ -151,6 +154,7 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
       // Header cart refresh
       window.dispatchEvent(new Event("cart-update"));
     } catch (err) {
+      console.error(err);
       toast.error("Something went wrong!");
     } finally {
       setLoading(false);
@@ -167,74 +171,76 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
         borderRadius: 1,
         overflow: "hidden",
         transition: "0.3s",
+        height: "100%",
+        display: "flex",
+        py:0,
+        flexDirection: "column",
         "&:hover": {
-          transform: "translateY(-5px)",
-          boxShadow: 6,
+          transform: { xs: "none", sm: "translateY(-5px)" },
+          boxShadow: { xs: 1, sm: 6 },
         },
       }}
     >
       {/* IMAGE */}
-      <Box sx={{ position: "relative",  overflow:"hidden", }}>
+      <Box sx={{ position: "relative", overflow: "hidden" }}>
         <CardMedia
           component="img"
           image={product.images?.[0] || product.image}
           alt={product.name}
           sx={{
-          
             height: {
-              xs: 180, // Mobile
-              sm: 180, // Small tablets
-              md: 220, // Desktop (same as curarent)
+              xs: 150, // Mobile
+              sm: 190, // Small tablets
+              md: 200, // Desktop
             },
             objectFit: "cover",
           }}
         />
         {product.stock <= 0 ? (
-   <Box
+          <Box
             sx={{
               position: "absolute",
-              top: 10,
-              left: -10,
+              top: { xs: 6, sm: 10 },
+              left: { xs: 0, sm: -10 },
               bgcolor: "#a70000",
               color: "#fff",
-              px: 1.5,
+              px: { xs: 1, sm: 1.5 },
               py: 0.5,
               borderRadius: 1,
-              fontSize: "0.75rem",
+              fontSize: { xs: "0.6rem", sm: "0.75rem" },
               fontWeight: 500,
               textTransform: "uppercase",
             }}
           >
             Out of Stock
           </Box>
-) : product.isSale ? (
-  <Chip
-    label="Sale"
-    size="small"
-    sx={{
-      position: "absolute",
-      top: 14,
-      left: 14,
-      bgcolor: "#ef4444",
-      color: "#fff",
-      fontWeight: 700,
-      fontSize: 11,
-      letterSpacing: 0.5,
-    }}
-  />
-  ) : null}
-    {/*     {product.stock === 0 && (
-         
-        )} */}
+        ) : product.isSale || discountPercent > 0 ? (
+          <Chip
+            label={discountPercent > 0 ? `${discountPercent}% OFF` : "Sale"}
+            size="small"
+            sx={{
+              position: "absolute",
+              top: { xs: 8, sm: 14 },
+              left: { xs: 8, sm: 14 },
+              bgcolor: "#ef4444",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: { xs: 9, sm: 11 },
+              letterSpacing: 0.5,
+              height: { xs: 18, sm: 22 },
+            }}
+          />
+        ) : null}
+
         {/* WISHLIST */}
         <IconButton
           onClick={handleWishlist}
           sx={{
             position: "absolute",
-            top: 10,
-            right: 10,
-            width: 35,
-            height: 35,
+            top: { xs: 6, sm: 10 },
+            right: { xs: 6, sm: 10 },
+            width: { xs: 28, sm: 35 },
+            height: { xs: 28, sm: 35 },
             bgcolor: "#fff",
             boxShadow: "0 4px 12px rgba(0,0,0,.12)",
             transition: "0.3s",
@@ -249,12 +255,14 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
             <FavoriteIcon
               sx={{
                 color: "#ef4444",
+                fontSize: { xs: 16, sm: 22 },
               }}
             />
           ) : (
             <FavoriteBorderIcon
               sx={{
                 color: "#555",
+                fontSize: { xs: 16, sm: 22 },
               }}
             />
           )}
@@ -262,16 +270,25 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
       </Box>
 
       {/* CONTENT */}
-      <CardContent sx={{ px: 1.5, pt: 1, pb: 0 }}>
+      <CardContent
+        sx={{
+          px: { xs: 1, sm: 1.5 },
+          pt: { xs: 0.75, sm: 1 },
+          pb: 0,
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         <Typography
           sx={{
-            fontSize: "1.05rem",
+            fontSize: { xs: "0.8rem", sm: "0.95rem", md: "1.05rem" },
             fontWeight: 700,
             fontFamily: "'Poppins', sans-serif",
             color: "#111827",
             lineHeight: 1.4,
             letterSpacing: "0.2px",
-            minHeight: 20,
+            minHeight: { xs: 32, sm: 40 },
 
             display: "-webkit-box",
             WebkitLineClamp: 2,
@@ -282,62 +299,90 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
           {product.name}
         </Typography>
 
+        {/* RATING */}
         <Box
           sx={{
-            mt: 0,
+            mt: 0.25,
             display: "flex",
-            justifyContent: "space-between",
             alignItems: "center",
+            gap: 0.5,
           }}
         >
-          {/* RATING */}
-          <Box
+          <Rating
+            value={product.ratings || 0}
+            precision={0.5}
+            readOnly
+            sx={{ fontSize: { xs: ".7rem", sm: ".9rem" } }}
+            size="small"
+          />
+
+          <Typography
+            variant="caption"
             sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 0.5,
+              color: "#666",
+              fontWeight: 500,
+              whiteSpace: "nowrap",
+              fontSize: { xs: "0.65rem", sm: "0.8rem" },
             }}
           >
-            <Rating
-              value={product.ratings || 0}
-              precision={0.5}
-              readOnly
-              sx={{ fontSize: ".9rem" }}
-              size="small"
-            />
+            ({product.numReviews || 0})
+          </Typography>
+        </Box>
 
-            <Typography
-              variant="caption"
-              sx={{
-                color: "#666",
-                fontWeight: 500,
-                whiteSpace: "nowrap",
-                fontSize: "0.9rem",
-              }}
-            >
-              ({product.numReviews || 0})
-            </Typography>
+        {/* PRICE + MRP */}
+        <Box
+          sx={{
+            mt: 0.5,
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: { xs: 0.5, sm: 0.75 },
+          }}
+        >
+          <Box>
+            {hasMrp && (
+              <>
+                <Typography
+                  sx={{
+                    fontSize: { xs: "0.7rem", sm: "0.85rem" },
+                    color: "text.secondary",
+                    textDecoration: "line-through",
+                  }}
+                >
+                  ₹{mrp.toLocaleString()}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: { xs: "0.68rem", sm: "0.8rem" },
+                    color: "#0F6E56",
+                    fontWeight: 600,
+                  }}
+                >
+                  {discountPercent}% off
+                </Typography>
+              </>
+            )}
           </Box>
-          {/* PRICE */}
           <Typography
             sx={{
-              fontSize: "1.1rem",
+              fontSize: { xs: "0.85rem", sm: "1rem" },
               fontWeight: 700,
               color: "#2f3b33",
-              fontSize: "0.9rem",
             }}
           >
-            ₹{product.price.toLocaleString()}
+            ₹{price.toLocaleString()}
           </Typography>
         </Box>
         <Typography
           variant="body2"
           sx={{
-            mt: 0,
+            mt: 0.5,
             color: "text.secondary",
-            minHeight: 30, // sab cards ki same height rahegi
-            display: "-webkit-box",
-            WebkitLineClamp: 2, // 2 lines ke baad ...
+            fontSize: { xs: "0.7rem", sm: "0.85rem" },
+            minHeight: { xs: 0, sm: 30 },
+            display: { xs: "none", sm: "-webkit-box" },
+            WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -352,12 +397,15 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
           variant="contained"
           disabled={loading || product.stock === 0}
           sx={{
-            mt: 2,
+            mt: { xs: 1, sm: 2 },
+            mb: { xs: 0, sm: 0 },
             bgcolor: product.stock === 0 ? "#bb0000" : "#111",
             color: "#fff",
             textTransform: "none",
             fontWeight: 600,
+            fontSize: { xs: "0.7rem", sm: "0.85rem" },
             borderRadius: 1,
+            py: { xs: 0.6, sm: 1 },
             transition: "0.3s",
             "&:hover": {
               bgcolor: product.stock === 0 ? "#560b0b" : "#333",
@@ -378,6 +426,7 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
               : "Add To Cart"}
         </Button>
       </CardContent>
+
       <Dialog open={loginOpen} onClose={() => setLoginOpen(false)}>
         <DialogTitle>Login Required</DialogTitle>
 
@@ -391,12 +440,14 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
               e.stopPropagation();
               setLoginOpen(false);
             }}
+            sx={{ color: "rgb(15, 16, 17)" }}
           >
             Cancel
           </Button>
 
           <Button
             variant="contained"
+            sx={{ bgcolor: "rgb(15, 16, 17)" }}
             onClick={(e) => {
               e.stopPropagation();
               router.push("/login");

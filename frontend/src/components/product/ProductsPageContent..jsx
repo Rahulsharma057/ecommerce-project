@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 
 import {
@@ -10,10 +10,6 @@ import {
   Paper,
   Breadcrumbs,
   Stack,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Drawer,
   IconButton,
   Button,
@@ -23,7 +19,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import TuneIcon from "@mui/icons-material/Tune";
 import CloseIcon from "@mui/icons-material/Close";
 
-import { useEffect } from "react";
 import ProductGrid from "@/components/product/ProductGrid";
 import ProductFilters from "@/components/product/ProductFilters";
 import EmptyState from "@/components/common/EmptyState";
@@ -32,22 +27,25 @@ import { API_URL } from "@/lib/api";
 export default function ProductsPageContent() {
   const [productList, setProductList] = useState([]);
 
-  const [sortBy, setSortBy] = useState("");
-
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [wishlistMap, setWishlistMap] = useState({});
   const searchParams = useSearchParams();
 
+  // 🔥 single source of truth for every filter — all read from the URL,
+  // ProductFilters writes to the URL via updateURL(). No local sortBy /
+  // type state duplicated here anymore.
   const search = searchParams.get("search") || "";
   const selectedCategory = searchParams.get("category") || "";
+  const selectedSubCategory = searchParams.get("subCategory") || "";
   const selectedType = searchParams.get("type") || "";
-  const category = selectedCategory;
-  const filterType = selectedType || "";
+  const selectedSort = searchParams.get("sort") || "";
+
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const limit = 12;
   const router = useRouter();
+
   const updateURL = (key, value) => {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -57,10 +55,6 @@ export default function ProductsPageContent() {
     router.push(`/products?${params.toString()}`);
   };
 
-  /*   const matchesCategory = selectedCategory
-    ? productList.category?.toLowerCase() === selectedCategory.toLowerCase()
-    : true;
- */
   const pageTitle = search
     ? `Search results for "${search}"`
     : selectedCategory
@@ -70,6 +64,7 @@ export default function ProductsPageContent() {
         : selectedType === "sale"
           ? "Sale Products"
           : "All Products";
+
   const searchWords = search
     .toLowerCase()
     .split(" ")
@@ -77,15 +72,14 @@ export default function ProductsPageContent() {
 
   const filteredProducts = useMemo(() => {
     return (productList || [])
-      .filter((productList) => {
+      .filter((item) => {
         const matchesSearch =
           searchWords.length === 0
             ? true
             : searchWords.every((word) => {
-                const name = productList?.name?.toLowerCase() || "";
-                const category = productList?.category?.toLowerCase() || "";
-                const description =
-                  productList?.description?.toLowerCase() || "";
+                const name = item?.name?.toLowerCase() || "";
+                const category = item?.category?.toLowerCase() || "";
+                const description = item?.description?.toLowerCase() || "";
 
                 return (
                   name.includes(word) ||
@@ -95,39 +89,43 @@ export default function ProductsPageContent() {
               });
 
         const matchesCategory = selectedCategory
-          ? productList.category
+          ? item.category
               ?.toLowerCase()
               .includes(selectedCategory.toLowerCase())
           : true;
 
+        const matchesSubCategory = selectedSubCategory
+          ? item.subCategory
+              ?.toLowerCase()
+              .includes(selectedSubCategory.toLowerCase())
+          : true;
+
         const matchesUrlType =
           selectedType === "new-arrivals"
-            ? productList.isNewArrival
+            ? item.isNewArrival
             : selectedType === "sale"
-              ? productList.isSale
+              ? item.isSale
               : true;
-
-        /*   const matchesType =
-  selectedType === "new-arrivals"
-    ? productList.isNewArrival
-    : selectedType === "sale"
-    ? productList.isSale
-    : true; */
 
         return (
           matchesSearch &&
           matchesCategory &&
-          matchesUrlType /*  && matchesType */
+          matchesSubCategory &&
+          matchesUrlType
         );
       })
       .sort((a, b) => {
-        switch (sortBy) {
+        // values match ProductFilters' SORT_OPTIONS
+        switch (selectedSort) {
           case "priceLow":
             return a.price - b.price;
+
           case "priceHigh":
             return b.price - a.price;
+
           case "name":
             return a.name.localeCompare(b.name);
+
           default:
             return 0;
         }
@@ -135,11 +133,10 @@ export default function ProductsPageContent() {
   }, [
     productList,
     search,
-    category,
     selectedCategory,
+    selectedSubCategory,
     selectedType,
-    sortBy,
-    filterType,
+    selectedSort,
   ]);
 
   const fetchProducts = async () => {
@@ -148,18 +145,26 @@ export default function ProductsPageContent() {
         page,
         limit,
         category: selectedCategory || "",
-        type: selectedType,
+        subCategory: selectedSubCategory || "",
+        type: selectedType || "",
         search,
+        sort: selectedSort || "",
       });
 
       const res = await fetch(`${API_URL}/products?${query.toString()}`);
+
+      if (!res.ok) {
+        throw new Error(`Products fetch failed with status ${res.status}`);
+      }
+
       const data = await res.json();
 
       setProductList(data.products || []);
       setTotalPages(data.totalPages || 1);
       setTotalProducts(data.total || 0);
     } catch (err) {
-      console.log("Error loading products", err);
+      console.error("Error loading products", err);
+      setProductList([]);
     }
   };
 
@@ -173,7 +178,14 @@ export default function ProductsPageContent() {
     }, 300);
 
     return () => clearTimeout(delay);
-  }, [page, search, selectedCategory, selectedType]);
+  }, [
+    page,
+    search,
+    selectedCategory,
+    selectedSubCategory,
+    selectedType,
+    selectedSort,
+  ]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -181,84 +193,60 @@ export default function ProductsPageContent() {
     }
   }, [totalPages]);
 
+  // reset to page 1 whenever any filter changes
   useEffect(() => {
     setPage(1);
-  }, [search, category, filterType]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [searchParams]);
+  }, [
+    search,
+    selectedCategory,
+    selectedSubCategory,
+    selectedType,
+    selectedSort,
+  ]);
 
   useEffect(() => {
     const fetchWishlist = async () => {
       const token = localStorage.getItem("token");
       if (!token) return;
 
-      const res = await fetch(`${API_URL}/wishlist`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      try {
+        const res = await fetch(`${API_URL}/wishlist`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : [];
-      const map = {};
+        if (!res.ok) return;
 
-      list.forEach((item) => {
-        const productId = item?.productId?._id;
-        if (productId) {
-          map[productId] = item._id;
-        }
-      });
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : [];
+        const map = {};
 
-      setWishlistMap(map);
+        list.forEach((item) => {
+          const productId = item?.productId?._id;
+          if (productId) {
+            map[productId] = item._id;
+          }
+        });
+
+        setWishlistMap(map);
+      } catch (err) {
+        console.error("Failed to load wishlist", err);
+      }
     };
 
     fetchWishlist();
   }, []);
 
-  // Shared filter controls rendered in both bar and drawer
+  // Filters + Sort + Type — all handled inside ProductFilters now.
   const FilterControls = (
-    <Stack spacing={2} direction={{ xs: "column", md: "row" }}>
-      <Box flex={2}>
-        <ProductFilters
-          category={category}
-          search={search}
-          filterType={filterType}
-          updateURL={updateURL}
-        />
-      </Box>
-
-      <Box flex={1}>
-        <FormControl fullWidth size="small">
-          <InputLabel>Sort By</InputLabel>
-          <Select
-            value={sortBy}
-            label="Sort By"
-            onChange={(e) => setSortBy(e.target.value)}
-          >
-            <MenuItem value="">Default</MenuItem>
-            <MenuItem value="priceLow">Price: Low to High</MenuItem>
-            <MenuItem value="priceHigh">Price: High to Low</MenuItem>
-            <MenuItem value="name">Name: A–Z</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
-
-      <Box flex={1}>
-        <FormControl fullWidth size="small">
-          <InputLabel>Type</InputLabel>
-          <Select
-            select
-            label="Type"
-            value={selectedType || ""}
-            onChange={(e) => updateURL("type", e.target.value)}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="new-arrivals">New Arrivals</MenuItem>
-            <MenuItem value="sale">Sale</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
-    </Stack>
+    <ProductFilters
+      category={selectedCategory}
+      subCategory={selectedSubCategory}
+      search={search}
+      filterType={selectedType}
+      sortBy={selectedSort}
+      setSortBy={(value) => updateURL("sort", value)}
+      updateURL={updateURL}
+    />
   );
 
   return (
@@ -293,7 +281,7 @@ export default function ProductsPageContent() {
               {pageTitle}
             </Typography>
             <Typography color="text.secondary" mt={0.5} sx={{ fontSize: 14 }}>
-              Showing <strong>{filteredProducts.length}</strong> results
+              Showing <strong> {filteredProducts.length} </strong> results
               {search && (
                 <span>
                   {" "}
@@ -322,19 +310,12 @@ export default function ProductsPageContent() {
           </Button>
         </Stack>
 
-        {/* Desktop filter bar */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2.5,
-            mb: 4,
-            borderRadius: 1,
-            border: "1px solid #e5e7eb",
-            display: { xs: "none", md: "block" },
-          }}
-        >
+        {/* Desktop filter bar — ProductFilters already renders its own
+            Paper/border/padding, so it's used directly without an extra
+            wrapper here. */}
+        <Box sx={{ display: { xs: "none", md: "block" } }}>
           {FilterControls}
-        </Paper>
+        </Box>
 
         {/* Products */}
         {filteredProducts.length > 0 ? (
@@ -381,19 +362,21 @@ export default function ProductsPageContent() {
             return p === 1 || p === totalPages || Math.abs(p - page) <= 1;
           })
           .map((pageNumber, idx, arr) => (
-            <>
+            <Box
+              key={pageNumber}
+              sx={{ display: "flex", alignItems: "center", gap: 1 }}
+            >
               {/* ellipsis */}
               {idx > 0 && pageNumber - arr[idx - 1] > 1 && (
                 <span style={{ padding: "0 6px" }}>...</span>
               )}
 
               <Button
-                key={pageNumber}
                 onClick={() => setPage(pageNumber)}
                 variant={page === pageNumber ? "contained" : "outlined"}
                 size="small"
                 sx={{
-                  bgcolor: "black",
+                  bgcolor: page === pageNumber ? "black" : "transparent",
                   minWidth: 36,
                   borderRadius: "10px",
                   fontWeight: 600,
@@ -402,7 +385,7 @@ export default function ProductsPageContent() {
               >
                 {pageNumber}
               </Button>
-            </>
+            </Box>
           ))}
 
         {/* Next */}
@@ -419,6 +402,7 @@ export default function ProductsPageContent() {
           Next
         </Button>
       </Stack>
+
       {/* Mobile filter drawer */}
       <Drawer
         anchor="bottom"
@@ -466,13 +450,15 @@ export default function ProductsPageContent() {
               color: "#fff",
               borderRadius: 2,
               fontWeight: 600,
-              fontSize: 13,
+              fontSize: 12,
               py: 1.25,
               "&:hover": { bgcolor: "#333" },
             }}
           >
-            Showing <strong>{filteredProducts.length}</strong> of{" "}
-            <strong>{totalProducts}</strong> products
+            show{" "}
+            {/*   Showing <strong> {filteredProducts.length} </strong> of {" "}
+            <strong>{totalProducts}</strong> */}{" "}
+            products
           </Button>
         </Box>
       </Drawer>

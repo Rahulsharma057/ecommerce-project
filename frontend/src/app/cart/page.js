@@ -3,11 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import {
-  removeFromCart,
-  increaseQuantity,
-  decreaseQuantity,
-} from "@/redux/slices/cartSlice";
 import AppliedCoupon from "@/components/coupon/AppliedCoupon";
 import {
   Box,
@@ -32,18 +27,56 @@ import VerifiedUserOutlinedIcon from "@mui/icons-material/VerifiedUserOutlined";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
-import { useDispatch, useSelector } from "react-redux";
-import { applyCoupon, removeCoupon } from "@/redux/slices/couponSlice";
 import CartItem from "@/components/cart/CartItem";
-import EmptyState from "@/components/common/EmptyState";
 import { API_URL } from "@/lib/api";
 
 const FREE_SHIPPING_THRESHOLD = 2000;
+
+// small safe helpers ---------------------------------------------------
+const safeGetItem = (key) => {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(key);
+  } catch (err) {
+    console.error("localStorage read error:", err);
+    return null;
+  }
+};
+
+const safeSetItem = (key, value) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, value);
+  } catch (err) {
+    console.error("localStorage write error:", err);
+  }
+};
+
+const safeRemoveItem = (key) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(key);
+  } catch (err) {
+    console.error("localStorage remove error:", err);
+  }
+};
+
+const safeJsonParse = (value, fallback = null) => {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    console.error("JSON parse error:", err);
+    return fallback;
+  }
+};
+// -----------------------------------------------------------------------
 
 export default function CartPage() {
   const router = useRouter();
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isAuthed, setIsAuthed] = useState(true);
   const [stockDialog, setStockDialog] = useState({
     open: false,
     adjustedCart: [],
@@ -79,14 +112,36 @@ export default function CartPage() {
 
   // 🔥 FETCH CART
   const fetchCart = async () => {
-    try {
-      const token = localStorage.getItem("token");
+    const token = safeGetItem("token");
 
+    // agar login hi nahi hai to API call try mat karo, seedha empty state dikhao
+    if (!token) {
+      setIsAuthed(false);
+      setCartItems([]);
+      setLoading(false);
+      return;
+    }
+
+    setIsAuthed(true);
+
+    try {
       const res = await fetch(`${API_URL}/cart`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      if (res.status === 401) {
+        // token expired / invalid
+        setIsAuthed(false);
+        setCartItems([]);
+        safeRemoveItem("token");
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(`Cart fetch failed with status ${res.status}`);
+      }
 
       const data = await res.json();
       const items = Array.isArray(data)
@@ -97,6 +152,7 @@ export default function CartPage() {
     } catch (err) {
       console.error(err);
       toast.error("Failed to load cart.");
+      setCartItems([]);
     } finally {
       setLoading(false);
     }
@@ -107,7 +163,7 @@ export default function CartPage() {
       setCouponData(null);
       setDiscount(0);
 
-      localStorage.removeItem("appliedCoupon");
+      safeRemoveItem("appliedCoupon");
 
       toast.info(
         "Coupon removed because minimum order value is no longer met.",
@@ -116,9 +172,15 @@ export default function CartPage() {
   }, [subtotal, couponData]);
 
   const handleCheckout = async () => {
-    try {
-      const token = localStorage.getItem("token");
+    const token = safeGetItem("token");
 
+    if (!token) {
+      toast.error("Please log in to continue checkout.");
+      router.push("/login");
+      return;
+    }
+
+    try {
       if (couponData) {
         const res = await fetch(`${API_URL}/coupons/apply`, {
           method: "POST",
@@ -136,10 +198,9 @@ export default function CartPage() {
           toast.error("Coupon expired or invalid.");
 
           setCouponData(null);
-
           setDiscount(0);
-          localStorage.removeItem("appliedCoupon");
-          localStorage.removeItem("checkoutCoupon");
+          safeRemoveItem("appliedCoupon");
+          safeRemoveItem("checkoutCoupon");
 
           return;
         }
@@ -150,6 +211,17 @@ export default function CartPage() {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      if (res.status === 401) {
+        toast.error("Session expired. Please log in again.");
+        safeRemoveItem("token");
+        router.push("/login");
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(`Stock validation failed with status ${res.status}`);
+      }
 
       const data = await res.json();
 
@@ -164,12 +236,8 @@ export default function CartPage() {
       }
 
       // ⚠️ STOCK ADJUSTMENT
-      let updated = false;
-
       if (data.adjustedCart?.length > 0) {
-        updated = true;
-
-        await Promise.all(
+        const results = await Promise.allSettled(
           data.adjustedCart.map((item) =>
             fetch(`${API_URL}/cart/update/${item.cartId}`, {
               method: "PUT",
@@ -184,12 +252,15 @@ export default function CartPage() {
             }),
           ),
         );
-      }
 
-      // 🔄 refresh cart UI
-      await fetchCart();
+        const failed = results.some((r) => r.status === "rejected");
+        if (failed) {
+          toast.error("Some items could not be updated. Please retry.");
+        }
 
-      if (data.adjustedCart?.length > 0) {
+        // 🔄 refresh cart UI
+        await fetchCart();
+
         setStockDialog({
           open: true,
           adjustedCart: data.adjustedCart,
@@ -197,14 +268,17 @@ export default function CartPage() {
         return;
       }
 
+      // 🔄 refresh cart UI
+      await fetchCart();
+
       // 📦 save address
-      const defaultAddress = localStorage.getItem("selectedAddress");
+      const defaultAddress = safeGetItem("selectedAddress");
 
       if (defaultAddress) {
-        localStorage.setItem("checkoutAddress", defaultAddress);
+        safeSetItem("checkoutAddress", defaultAddress);
       }
       if (couponData) {
-        localStorage.setItem(
+        safeSetItem(
           "checkoutCoupon",
           JSON.stringify({
             coupon: couponData,
@@ -212,20 +286,25 @@ export default function CartPage() {
           }),
         );
       } else {
-        localStorage.removeItem("checkoutCoupon");
+        safeRemoveItem("checkoutCoupon");
       }
       // 🚀 navigate AFTER all updates
       router.push("/checkout");
     } catch (err) {
-      console.log(err);
+      console.error(err);
       toast.error("Unable to verify stock. Please try again.");
     }
   };
 
   const handleApplyCoupon = async () => {
-    try {
-      const token = localStorage.getItem("token");
+    const token = safeGetItem("token");
 
+    if (!token) {
+      toast.error("Please log in to apply a coupon.");
+      return;
+    }
+
+    try {
       const res = await fetch(`${API_URL}/coupons/apply`, {
         method: "POST",
         headers: {
@@ -238,7 +317,7 @@ export default function CartPage() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         toast.error(data.message || "Invalid coupon.");
@@ -248,7 +327,7 @@ export default function CartPage() {
       setCouponData(data.coupon);
       setDiscount(data.discount);
 
-      localStorage.setItem(
+      safeSetItem(
         "appliedCoupon",
         JSON.stringify({
           coupon: data.coupon,
@@ -266,12 +345,12 @@ export default function CartPage() {
   useEffect(() => {
     fetchCart();
 
-    const savedCoupon = localStorage.getItem("appliedCoupon");
+    const savedCoupon = safeGetItem("appliedCoupon");
+    const data = safeJsonParse(savedCoupon);
 
-    if (savedCoupon) {
-      const data = JSON.parse(savedCoupon);
+    if (data?.coupon) {
       setCouponData(data.coupon);
-      setDiscount(data.discount);
+      setDiscount(data.discount || 0);
     }
 
     const handleCartUpdate = () => {
@@ -283,6 +362,7 @@ export default function CartPage() {
     return () => {
       window.removeEventListener("cart-update", handleCartUpdate);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -290,31 +370,48 @@ export default function CartPage() {
       setCouponData(null);
       setDiscount(0);
 
-      localStorage.removeItem("appliedCoupon");
-      localStorage.removeItem("checkoutCoupon");
+      safeRemoveItem("appliedCoupon");
+      safeRemoveItem("checkoutCoupon");
     }
   }, [cartItems]);
 
   const handleRemove = async (id) => {
-    const token = localStorage.getItem("token");
+    const token = safeGetItem("token");
+    if (!token) {
+      toast.error("Please log in.");
+      return;
+    }
 
-    await fetch(`${API_URL}/cart/${id}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    try {
+      const res = await fetch(`${API_URL}/cart/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-  await fetchCart();
-toast.success("Item removed from cart.");
+      if (!res.ok) {
+        throw new Error(`Remove failed with status ${res.status}`);
+      }
+
+      await fetchCart();
+      toast.success("Item removed from cart.");
+    } catch (err) {
+      console.error("Remove error:", err);
+      toast.error("Could not remove item. Please try again.");
+    }
   };
 
   // ➕ INCREASE
   const handleIncrease = async (id) => {
-    try {
-      const token = localStorage.getItem("token");
+    const token = safeGetItem("token");
+    if (!token) {
+      toast.error("Please log in.");
+      return;
+    }
 
-      await fetch(`${API_URL}/cart/update/${id}`, {
+    try {
+      const res = await fetch(`${API_URL}/cart/update/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -323,54 +420,72 @@ toast.success("Item removed from cart.");
         body: JSON.stringify({ type: "inc" }),
       });
 
-      fetchCart(); // 🔥 THIS IS MISSING
+      if (!res.ok) {
+        throw new Error(`Increase failed with status ${res.status}`);
+      }
+
+      await fetchCart();
     } catch (err) {
-      console.log("Increase error:", err);
+      console.error("Increase error:", err);
+      toast.error("Could not update quantity. Please try again.");
     }
   };
 
   // ➖ DECREASE
   const handleDecrease = async (id) => {
-    const token = localStorage.getItem("token");
+    const token = safeGetItem("token");
+    if (!token) {
+      toast.error("Please log in.");
+      return;
+    }
 
-    await fetch(`${API_URL}/cart/update/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ type: "dec" }),
-    });
+    try {
+      const res = await fetch(`${API_URL}/cart/update/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ type: "dec" }),
+      });
 
-    fetchCart();
+      if (!res.ok) {
+        throw new Error(`Decrease failed with status ${res.status}`);
+      }
+
+      await fetchCart();
+    } catch (err) {
+      console.error("Decrease error:", err);
+      toast.error("Could not update quantity. Please try again.");
+    }
   };
 
-  const removeCoupon = () => {
+  // renamed to avoid clashing with anything imported from redux slices
+  const handleRemoveCoupon = () => {
     setCouponData(null);
     setDiscount(0);
     setCouponCode("");
 
-    localStorage.removeItem("appliedCoupon");
-    localStorage.removeItem("checkoutCoupon");
+    safeRemoveItem("appliedCoupon");
+    safeRemoveItem("checkoutCoupon");
 
     window.dispatchEvent(new Event("coupon-update"));
   };
 
   useEffect(() => {
     const handleCouponUpdate = () => {
-      const saved = localStorage.getItem("appliedCoupon");
+      const saved = safeGetItem("appliedCoupon");
+      const data = safeJsonParse(saved);
 
-      if (!saved) {
+      if (!data?.coupon) {
         setCouponData(null);
         setDiscount(0);
         setCouponCode("");
         return;
       }
 
-      const data = JSON.parse(saved);
-
       setCouponData(data.coupon);
-      setDiscount(data.discount);
+      setDiscount(data.discount || 0);
     };
 
     window.addEventListener("coupon-update", handleCouponUpdate);
@@ -383,6 +498,71 @@ toast.success("Item removed from cart.");
     return (
       <Box sx={{ p: 5, textAlign: "center" }}>
         <Typography>Loading cart...</Typography>
+      </Box>
+    );
+  }
+
+  // 🔐 NOT LOGGED IN — friendly state instead of a crash
+  if (!isAuthed) {
+    return (
+      <Box
+        sx={{
+          bgcolor: "grey.50",
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <Container maxWidth="sm">
+          <Box sx={{ textAlign: "center", py: 10 }}>
+            <Box
+              sx={{
+                width: 88,
+                height: 88,
+                borderRadius: "50%",
+                bgcolor: "grey.100",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                mx: "auto",
+                mb: 3,
+              }}
+            >
+              <ShoppingBagOutlinedIcon
+                sx={{ fontSize: 40, color: "text.disabled" }}
+              />
+            </Box>
+            <Typography
+              variant="h5"
+              fontWeight={700}
+              letterSpacing="-0.02em"
+              mb={1}
+            >
+              Please log in to view your cart
+            </Typography>
+            <Typography color="text.secondary" fontSize={14} mb={4}>
+              You need to be signed in to see and manage your cart items.
+            </Typography>
+            <Button
+              component={Link}
+              href="/login"
+              variant="contained"
+              endIcon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
+              sx={{
+                bgcolor: "#111",
+                color: "#fff",
+                borderRadius: 2,
+                px: 3,
+                py: 1.25,
+                fontSize: 13,
+                fontWeight: 600,
+                "&:hover": { bgcolor: "#333" },
+              }}
+            >
+              Log In
+            </Button>
+          </Box>
+        </Container>
       </Box>
     );
   }
@@ -601,7 +781,7 @@ toast.success("Item removed from cart.");
                 <Button
                   size="small"
                   onClick={handleApplyCoupon}
-                  disabled={!couponCode || couponData}
+                  disabled={!couponCode || !!couponData}
                   sx={{
                     borderRadius: 0,
                     px: 2,
@@ -619,14 +799,7 @@ toast.success("Item removed from cart.");
               <AppliedCoupon
                 coupon={couponData}
                 discount={discount}
-                onRemove={() => {
-                  setCouponData(null);
-                  setDiscount(0);
-                  setCouponCode("");
-
-                  localStorage.removeItem("appliedCoupon");
-                  localStorage.removeItem("checkoutCoupon");
-                }}
+                onRemove={handleRemoveCoupon}
               />
               {/* Price breakdown */}
               <Stack spacing={1.5} mb={2}>
@@ -842,42 +1015,56 @@ toast.success("Item removed from cart.");
             variant="contained"
             color="warning"
             onClick={async () => {
-              const token = localStorage.getItem("token");
-
-              await Promise.all(
-                stockDialog.adjustedCart.map((item) =>
-                  fetch(`${API_URL}/cart/update/${item.cartId}`, {
-                    method: "PUT",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                      type: "set",
-                      quantity: item.available,
-                    }),
-                  }),
-                ),
-              );
-
-              setStockDialog({
-                open: false,
-                adjustedCart: [],
-              });
-
-              await fetchCart();
-
-              if (couponData) {
-                localStorage.setItem(
-                  "checkoutCoupon",
-                  JSON.stringify({
-                    coupon: couponData,
-                    discount,
-                  }),
-                );
+              const token = safeGetItem("token");
+              if (!token) {
+                toast.error("Please log in.");
+                return;
               }
 
-              router.push("/checkout");
+              try {
+                const results = await Promise.allSettled(
+                  stockDialog.adjustedCart.map((item) =>
+                    fetch(`${API_URL}/cart/update/${item.cartId}`, {
+                      method: "PUT",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify({
+                        type: "set",
+                        quantity: item.available,
+                      }),
+                    }),
+                  ),
+                );
+
+                const failed = results.some((r) => r.status === "rejected");
+                if (failed) {
+                  toast.error("Some items could not be updated.");
+                }
+
+                setStockDialog({
+                  open: false,
+                  adjustedCart: [],
+                });
+
+                await fetchCart();
+
+                if (couponData) {
+                  safeSetItem(
+                    "checkoutCoupon",
+                    JSON.stringify({
+                      coupon: couponData,
+                      discount,
+                    }),
+                  );
+                }
+
+                router.push("/checkout");
+              } catch (err) {
+                console.error("Stock update error:", err);
+                toast.error("Could not update cart. Please try again.");
+              }
             }}
           >
             Update Cart & Continue

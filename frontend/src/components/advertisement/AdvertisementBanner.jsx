@@ -184,20 +184,21 @@ if (loading) {
               href={ad.buttonLink || "/products"}
               variant="contained"
               sx={{
-                bgcolor: "#fff",
-                color: "#111",
+                bgcolor: "#36ba60",
+                color: "#ffffff",
                 px: {
                 xs: 2,
                 md: 4,
               },
                 py:{
-                xs: 1,
+                xs: .5,
                 md: 1,
               },
-                fontWeight: 500,
+              fontSize:"0.70rem",
+                fontWeight: 600,
                 borderRadius: "50px",
                 "&:hover": {
-                  bgcolor: "#f3f4f6",
+                  bgcolor: "#6eec3c",
                 },
               }}
             >
