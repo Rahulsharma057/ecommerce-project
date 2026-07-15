@@ -1,13 +1,18 @@
 "use client";
-
+import { useEffect } from "react";
 import { Box, Container, Typography, Button, Stack, Chip ,Paper,Divider} from "@mui/material";
 import ArrowOutwardIcon from "@mui/icons-material/ArrowOutward";
 import CheckIcon from "@mui/icons-material/Check";
 import StarIcon from "@mui/icons-material/Star";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import { useHomeLoading } from "@/context/HomeLoadingContext";
 import Link from "next/link";
 import Image from "next/image";
 export default function HeroSection() {
+   const { markReady } = useHomeLoading();
+   useEffect(() => {
+ markReady();
+  }, []);
   return (
     <Box
       sx={{

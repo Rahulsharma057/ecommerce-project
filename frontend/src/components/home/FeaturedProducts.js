@@ -17,33 +17,34 @@ import EastRoundedIcon from "@mui/icons-material/EastRounded";
 import ProductCard from "@/components/product/ProductCard";
 import EmptyState from "@/components/common/EmptyState";
 import { API_URL } from "@/lib/api";
+import { useHomeLoading } from "@/context/HomeLoadingContext";
 
 export default function FeaturedProducts() {
   const [productList, setProductList] = useState([]);
   const [wishlistMap, setWishlistMap] = useState({});
   const scrollRef = useRef(null);
-
+const { markReady } = useHomeLoading();
   const limit = 20; // slider ke liye ek hi baar zyada products le lo
 
-  const fetchFeaturedProducts = async () => {
-    try {
-      const res = await fetch(
-        `${API_URL}/products/featured?page=1&limit=${limit}`,
-      );
+const fetchFeaturedProducts = async () => {
+  try {
+    const res = await fetch(
+      `${API_URL}/products/featured?page=1&limit=${limit}`
+    );
 
-      const data = await res.json();
+    const data = await res.json();
 
-    //  console.log("FEATURED RESPONSE:", data);
-
-      if (Array.isArray(data)) {
-        setProductList(data);
-      } else {
-        setProductList(data.products || []);
-      }
-    } catch (err) {
-      console.log(err);
+    if (Array.isArray(data)) {
+      setProductList(data);
+    } else {
+      setProductList(data.products || []);
     }
-  };
+  } catch (err) {
+    console.log(err);
+  } finally {
+    markReady();   // ✅ यह जरूरी है
+  }
+};
 
   useEffect(() => {
     fetchFeaturedProducts();

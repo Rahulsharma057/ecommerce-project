@@ -15,7 +15,7 @@ import Link from "next/link";
 import EastRoundedIcon from "@mui/icons-material/EastRounded";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
-
+import { useHomeLoading } from "@/context/HomeLoadingContext";
 import ProductCard from "@/components/product/ProductCard";
 import EmptyState from "@/components/common/EmptyState";
 
@@ -25,21 +25,20 @@ export default function NewArrivals() {
   const [products, setProducts] = useState([]);
 const [wishlistMap, setWishlistMap] = useState({});
   const scrollRef = useRef(null);
+const { markReady } = useHomeLoading();
+const fetchNewArrivals = async () => {
+  try {
+    const res = await fetch(`${API_URL}/products/new-arrivals?limit=20`);
 
-  const fetchNewArrivals = async () => {
-    try {
-      const res = await fetch(`${API_URL}/products/new-arrivals?limit=20`);
+    const data = await res.json();
 
-      const data = await res.json();
-
-      console.log("NEW ARRIVALS", data);
-
-      setProducts(data.products || []);
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
+    setProducts(data.products || []);
+  } catch (err) {
+    console.log(err);
+  } finally {
+    markReady();    // ✅
+  }
+};
 useEffect(() => {
   fetchNewArrivals();
   fetchWishlist();
