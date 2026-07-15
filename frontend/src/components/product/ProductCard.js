@@ -288,7 +288,7 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
             color: "#111827",
             lineHeight: 1.4,
             letterSpacing: "0.2px",
-            minHeight: { xs: 32, sm: 40 },
+            minHeight: { xs: 16, sm: 20 },
 
             display: "-webkit-box",
             WebkitLineClamp: 2,

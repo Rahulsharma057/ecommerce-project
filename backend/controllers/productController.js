@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const Product = require("../models/Product");
 const User = require("../models/User");
 const cloudinary = require("../config/cloudinary");
-
+const ProductAttribute = require("../models/ProductAttribute");
 // Accepts a real array, a JSON-stringified array, or a plain string —
 // always returns a clean string[].
 function parseArrayField(value) {
@@ -209,10 +209,27 @@ switch (sort) {
 };
 
 // ── ATTRIBUTE OPTIONS (existing category/subCategory values in use) ──
+/* exports.getCategoryOptions = async (req, res) => {
+  try {
+    const categories = await ProductAttribute.find({ type: "category" }).distinct("value");
+    const subCategories = await ProductAttribute.find({ type: "subCategory" }).distinct("value");
+    res.json({
+      categories: categories.filter(Boolean).sort(),
+      subCategories: subCategories.filter(Boolean).sort(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}; */ //agr niche wala na chle  to
+
+// productController.js — getCategoryOptions ko is se replace karein
 exports.getCategoryOptions = async (req, res) => {
   try {
-    const categories = await Product.distinct("category");
-    const subCategories = await Product.distinct("subCategory");
+    // Sirf Active products se categories/subCategories nikalo —
+    // Draft/Archived products ki category customer-facing filter me nahi dikhni chahiye
+    const categories = await Product.distinct("category", { status: "Active" });
+    const subCategories = await Product.distinct("subCategory", { status: "Active" });
+
     res.json({
       categories: categories.filter(Boolean).sort(),
       subCategories: subCategories.filter(Boolean).sort(),

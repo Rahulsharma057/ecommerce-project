@@ -68,7 +68,7 @@ export default function ProductFilters({
 
     const fetchCategories = async () => {
       try {
-        const res = await fetch(`${API_URL}/products/categories`);
+     const res = await fetch(`${API_URL}/products/categories/options`);;
 
         if (!res.ok) {
           throw new Error(`Category fetch failed with status ${res.status}`);
