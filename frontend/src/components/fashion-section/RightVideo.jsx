@@ -1,62 +1,105 @@
 "use client";
 
-import { Box, Typography } from "@mui/material";
+import { Box } from "@mui/material";
+import { useEffect, useRef } from "react";
 
 export default function RightVideo({ data }) {
+
+  const videoRef = useRef(null);
+  const containerRef = useRef(null);
+  const loadedRef = useRef(false);
+
+  useEffect(() => {
+
+    const video = videoRef.current;
+    const container = containerRef.current;
+
+    if (!video || !container) return;
+
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+
+        if (entry.isIntersecting) {
+
+          if (!loadedRef.current) {
+            video.load();
+            loadedRef.current = true;
+          }
+
+          video.play().catch(() => {});
+
+        } else {
+
+          video.pause();
+
+        }
+
+      },
+      {
+        threshold: 0.5,
+      }
+    );
+
+
+    observer.observe(container);
+
+
+    return () => observer.disconnect();
+
+
+  }, [data]);
+
+
+  if (!data) return null;
+
+
   return (
     <Box
+      ref={containerRef}
       sx={{
-        height: 320,
-        position: "relative",
-        overflow: "hidden",
-        bgcolor: "#000",
+        height:320,
+        position:"relative",
+        overflow:"hidden",
+        bgcolor:"#000",
       }}
     >
+
       {data.video ? (
+
         <video
+          ref={videoRef}
           key={data.video}
           src={data.video}
-          autoPlay
           muted
           loop
           playsInline
-          preload="auto"
+          preload="none"
+          poster={data.image}
           style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
+            width:"100%",
+            height:"100%",
+            objectFit:"cover",
           }}
-        >
-          Your browser does not support video.
-        </video>
+          
+        />
+
       ) : (
+
         <Box
           component="img"
           src={data.image}
           alt={data.title}
+          loading="lazy"
           sx={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
+            width:"100%",
+            height:"100%",
+            objectFit:"cover",
           }}
         />
+
       )}
-
-      {/* Dark Overlay */}
-
-      <Box
-        sx={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(to top, rgba(0,0,0,.65), rgba(0,0,0,.15), transparent)",
-        }}
-      />
-
-     
-
-     {/*  <Box
+ {/*  <Box
         sx={{
           position: "absolute",
           left: 40,

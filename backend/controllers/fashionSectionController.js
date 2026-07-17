@@ -1,6 +1,6 @@
 const FashionSection = require("../models/FashionSection");
 const uploadToCloudinary = require("../utils/cloudinaryUpload");
-
+const cloudinary = require("../config/cloudinary");
 // ==========================
 // CREATE
 // ==========================
@@ -24,40 +24,49 @@ exports.createFashionSection = async (req, res) => {
         message: "Category and Title are required.",
       });
     }
+let image = "";
+let imagePublicId = "";
 
-    let image = "";
-    let video = "";
+let video = "";
+let videoPublicId = "";
 
     if (req.files?.image?.[0]) {
-      const uploadedImage = await uploadToCloudinary(
-        req.files.image[0],
-        "image"
-      );
+     const uploadedImage = await uploadToCloudinary(
+  req.files.image[0],
+  "image"
+);
 
-      image = uploadedImage.secure_url;
+image = uploadedImage.secure_url;
+ imagePublicId = uploadedImage.public_id;
     }
 
     if (req.files?.video?.[0]) {
-      const uploadedVideo = await uploadToCloudinary(
-        req.files.video[0],
-        "video"
-      );
+  const uploadedVideo = await uploadToCloudinary(
+  req.files.video[0],
+  "video"
+);
 
-      video = uploadedVideo.secure_url;
+video = uploadedVideo.secure_url;
+videoPublicId = uploadedVideo.public_id;
     }
 
-    const section = await FashionSection.create({
-      category,
-      title,
-      subtitle,
-      description,
-      image,
-      video,
-      buttonText,
-      buttonLink,
-      order: Number(order) || 1,
-      visible: visible === "true" || visible === true,
-    });
+const section = await FashionSection.create({
+  category,
+  title,
+  subtitle,
+  description,
+
+  image,
+  imagePublicId,
+
+  video,
+  videoPublicId,
+
+  buttonText,
+  buttonLink,
+  order: Number(order) || 1,
+  visible: visible === "true" || visible === true,
+});
 
     return res.status(201).json({
       success: true,
@@ -180,24 +189,40 @@ exports.updateFashionSection = async (req, res) => {
     }
 
     // Upload New Image
-    if (req.files?.image?.[0]) {
-      const uploadedImage = await uploadToCloudinary(
-        req.files.image[0],
-        "image"
-      );
+ if (req.files?.image?.[0]) {
 
-      section.image = uploadedImage.secure_url;
-    }
+  if (section.imagePublicId) {
+    await cloudinary.uploader.destroy(section.imagePublicId);
+  }
 
+  const uploadedImage = await uploadToCloudinary(
+    req.files.image[0],
+    "image"
+  );
+
+  section.image = uploadedImage.secure_url;
+  section.imagePublicId = uploadedImage.public_id;
+}
     // Upload New Video
-    if (req.files?.video?.[0]) {
-      const uploadedVideo = await uploadToCloudinary(
-        req.files.video[0],
-        "video"
-      );
+if (req.files?.video?.[0]) {
 
-      section.video = uploadedVideo.secure_url;
-    }
+  if (section.videoPublicId) {
+    await cloudinary.uploader.destroy(
+      section.videoPublicId,
+      {
+        resource_type: "video",
+      }
+    );
+  }
+
+  const uploadedVideo = await uploadToCloudinary(
+    req.files.video[0],
+    "video"
+  );
+
+  section.video = uploadedVideo.secure_url;
+  section.videoPublicId = uploadedVideo.public_id;
+}
 
     section.category = category || section.category;
     section.title = title || section.title;
@@ -245,6 +270,18 @@ exports.deleteFashionSection = async (req, res) => {
         message: "Fashion section not found.",
       });
     }
+    if (section.imagePublicId) {
+    await cloudinary.uploader.destroy(section.imagePublicId);
+}
+
+if (section.videoPublicId) {
+    await cloudinary.uploader.destroy(
+        section.videoPublicId,
+        {
+            resource_type: "video",
+        }
+    );
+}
 
     await section.deleteOne();
 

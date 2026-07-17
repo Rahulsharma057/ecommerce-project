@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+
 import {
   Box,
   TextField,
@@ -73,7 +74,7 @@ function HighlightedText({ text, query }) {
 export default function SearchBar({ fullWidth }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-
+const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -133,16 +134,25 @@ export default function SearchBar({ fullWidth }) {
   }, [query]);
 
   const goToResults = useCallback(
-    (term) => {
-      const q = term.trim();
-      if (!q) return;
-      setRecent(saveRecentSearch(q) || getRecentSearches());
-      router.push(`/products?search=${encodeURIComponent(q)}`);
-      setOpen(false);
-      setActiveIndex(-1);
-    },
-    [router],
-  );
+  (term) => {
+    const q = term.trim();
+    if (!q) return;
+
+    setRecent(saveRecentSearch(q) || getRecentSearches());
+
+    const url = `/products?search=${encodeURIComponent(q)}`;
+
+    if (pathname === "/products") {
+      router.replace(url, { scroll: false });
+    } else {
+      router.push(url);
+    }
+
+    setOpen(false);
+    setActiveIndex(-1);
+  },
+  [router, pathname],
+);
 
   const goToProduct = useCallback(
     (product) => {
@@ -244,10 +254,17 @@ export default function SearchBar({ fullWidth }) {
                 ) : query ? (
                   <IconButton
                     size="small"
-                    onClick={() => {
-                      setQuery("");
-                      setSuggestions({ products: [], categories: [], brands: [] });
-                    }}
+                  onClick={() => {
+  setQuery("");
+  setSuggestions({ products: [], categories: [], brands: [] });
+
+  const params = new URLSearchParams(searchParams.toString());
+  params.delete("search");
+
+  router.replace(`/products?${params.toString()}`, {
+    scroll: false,
+  });
+}}
                   >
                     <ClearIcon fontSize="small" />
                   </IconButton>

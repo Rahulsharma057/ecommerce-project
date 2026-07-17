@@ -46,9 +46,9 @@ export default function RootLayout({ children }) {
             <Footer />
           </Providers>
         </AppRouterCacheProvider>
-        <script 
+      {/*   <script 
 src="https://checkout.razorpay.com/v1/checkout.js"
-/>
+/> */}
       </body>
 
     </html>

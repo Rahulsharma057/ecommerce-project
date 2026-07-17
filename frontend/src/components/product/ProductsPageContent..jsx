@@ -2,12 +2,12 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-
 import {
   Box,
   Container,
   Typography,
   Paper,
+  Skeleton,
   Breadcrumbs,
   Stack,
   Drawer,
@@ -18,7 +18,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import TuneIcon from "@mui/icons-material/Tune";
 import CloseIcon from "@mui/icons-material/Close";
-
+import LinearProgress from "@mui/material/LinearProgress";
 import ProductGrid from "@/components/product/ProductGrid";
 import ProductFilters from "@/components/product/ProductFilters";
 import EmptyState from "@/components/common/EmptyState";
@@ -26,7 +26,8 @@ import { API_URL } from "@/lib/api";
 
 export default function ProductsPageContent() {
   const [productList, setProductList] = useState([]);
-
+  const [loading, setLoading] = useState(true);
+  const [firstLoading, setFirstLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [wishlistMap, setWishlistMap] = useState({});
   const searchParams = useSearchParams();
@@ -43,7 +44,7 @@ export default function ProductsPageContent() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
-  const limit = 12;
+  const limit = 4;
   const router = useRouter();
 
   const updateURL = (key, value) => {
@@ -52,7 +53,9 @@ export default function ProductsPageContent() {
     if (value) params.set(key, value);
     else params.delete(key);
 
-    router.push(`/products?${params.toString()}`);
+    router.replace(`/products?${params.toString()}`, {
+      scroll: false,
+    });
   };
 
   const pageTitle = search
@@ -141,6 +144,8 @@ export default function ProductsPageContent() {
 
   const fetchProducts = async () => {
     try {
+      setLoading(true);
+
       const query = new URLSearchParams({
         page,
         limit,
@@ -158,13 +163,16 @@ export default function ProductsPageContent() {
       }
 
       const data = await res.json();
-
+      console.log(data);
       setProductList(data.products || []);
       setTotalPages(data.totalPages || 1);
       setTotalProducts(data.total || 0);
     } catch (err) {
       console.error("Error loading products", err);
       setProductList([]);
+    } finally {
+      setLoading(false);
+      setFirstLoading(false);
     }
   };
 
@@ -236,6 +244,42 @@ export default function ProductsPageContent() {
     fetchWishlist();
   }, []);
 
+  const ProductGridSkeleton = () => (
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: {
+          xs: "repeat(2,1fr)",
+          sm: "repeat(2,1fr)",
+          md: "repeat(3,1fr)",
+          lg: "repeat(4,1fr)",
+        },
+        gap: 3,
+        mt: 2,
+      }}
+    >
+      {Array.from({ length: 8 }).map((_, index) => (
+        <Paper
+          key={index}
+          elevation={0}
+          sx={{
+            borderRadius: 3,
+            overflow: "hidden",
+            border: "1px solid #eee",
+          }}
+        >
+          <Skeleton variant="rectangular" height={280} />
+
+          <Box p={2}>
+            <Skeleton width="70%" height={24} />
+            <Skeleton width="45%" />
+            <Skeleton width="35%" height={30} />
+          </Box>
+        </Paper>
+      ))}
+    </Box>
+  );
+
   // Filters + Sort + Type — all handled inside ProductFilters now.
   const FilterControls = (
     <ProductFilters
@@ -251,9 +295,20 @@ export default function ProductsPageContent() {
 
   return (
     <Box sx={{ bgcolor: "#f8f9fb", minHeight: "100vh", py: { xs: 1, md: 2 } }}>
+      {loading && (
+        <LinearProgress
+          sx={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+          }}
+        />
+      )}
       <Container maxWidth="xl">
         {/* Breadcrumbs */}
-         <Breadcrumbs sx={{ mb: 2 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
           <Link
             href="/"
             style={{ textDecoration: "none", color: "#666", fontSize: 13 }}
@@ -261,7 +316,7 @@ export default function ProductsPageContent() {
             Home
           </Link>
           <Typography sx={{ fontSize: 13 }}>{pageTitle}</Typography>
-        </Breadcrumbs> 
+        </Breadcrumbs>
 
         {/* Header */}
         <Stack
@@ -272,7 +327,15 @@ export default function ProductsPageContent() {
           gap={1}
           mb={2}
         >
-          <Box sx={{width:"100%", display:"flex",justifyContent:"space-between",flexDirection:"row",alignItems:"center"}}>
+          <Box
+            sx={{
+              width: "100%",
+              display: "flex",
+              justifyContent: "space-between",
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
             <Typography
               variant="h4"
               fontWeight={600}
@@ -280,24 +343,24 @@ export default function ProductsPageContent() {
             >
               {pageTitle}
             </Typography>
-             {/* Mobile filter button */}
-          <Button
-            startIcon={<TuneIcon sx={{ fontSize: 16 }} />}
-            onClick={() => setDrawerOpen(true)}
-            variant="outlined"
-            size="small"
-            sx={{
-              display: { xs: "inline-flex", md: "none" },
-              borderRadius: 2,
-              borderColor: "divider",
-              color: "text.primary",
-              fontSize: 13,
-              "&:hover": { bgcolor: "grey.100" },
-            }}
-          >
-          {" "}
-          </Button>
-        {/*    <Typography color="text.secondary" mt={0.5} sx={{ fontSize: 14 }}>
+            {/* Mobile filter button */}
+            <Button
+              startIcon={<TuneIcon sx={{ fontSize: 16 }} />}
+              onClick={() => setDrawerOpen(true)}
+              variant="outlined"
+              size="small"
+              sx={{
+                display: { xs: "inline-flex", md: "none" },
+                borderRadius: 2,
+                borderColor: "divider",
+                color: "text.primary",
+                fontSize: 13,
+                "&:hover": { bgcolor: "grey.100" },
+              }}
+            >
+              {" "}
+            </Button>
+            {/*    <Typography color="text.secondary" mt={0.5} sx={{ fontSize: 14 }}>
               Showing <strong> {filteredProducts.length} </strong> results
               {search && (
                 <span>
@@ -307,8 +370,6 @@ export default function ProductsPageContent() {
               )}
             </Typography>  */}
           </Box>
-
-         
         </Stack>
 
         {/* Desktop filter bar — ProductFilters already renders its own
@@ -319,12 +380,38 @@ export default function ProductsPageContent() {
         </Box>
 
         {/* Products */}
-        {filteredProducts.length > 0 ? (
-          <ProductGrid
-            products={filteredProducts}
-            wishlistMap={wishlistMap}
-            setWishlistMap={setWishlistMap}
-          />
+        {firstLoading && loading ? (
+          <ProductGridSkeleton />
+        ) : filteredProducts.length > 0 ? (
+          <Box sx={{ position: "relative" }}>
+            <ProductGrid
+              products={filteredProducts}
+              wishlistMap={wishlistMap}
+              setWishlistMap={setWishlistMap}
+            />
+            {loading && !firstLoading && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(255,255,255,.55)",
+                  backdropFilter: "blur(3px)",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  borderRadius: 2,
+                  zIndex: 5,
+                }}
+              >
+                <LinearProgress
+                  sx={{
+                    width: "60%",
+                    borderRadius: 5,
+                  }}
+                />
+              </Box>
+            )}
+          </Box>
         ) : (
           <Paper sx={{ py: 10, borderRadius: 4 }}>
             <EmptyState title={`No products found in ${pageTitle}`} />
@@ -345,7 +432,7 @@ export default function ProductsPageContent() {
       >
         {/* Prev */}
         <Button
-          disabled={page === 1}
+          disabled={loading || page === 1}
           onClick={() => setPage((p) => p - 1)}
           variant="outlined"
           size="small"
@@ -391,7 +478,7 @@ export default function ProductsPageContent() {
 
         {/* Next */}
         <Button
-          disabled={page === totalPages}
+          disabled={loading || page === totalPages}
           onClick={() => setPage((p) => p + 1)}
           variant="outlined"
           size="small"
@@ -441,7 +528,8 @@ export default function ProductsPageContent() {
 
         {FilterControls}
 
-        <Box mt={3}>-
+        <Box mt={3}>
+          -
           <Button
             fullWidth
             variant="contained"

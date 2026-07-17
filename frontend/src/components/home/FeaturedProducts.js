@@ -10,6 +10,7 @@ import {
   Button,
   Stack,
 } from "@mui/material";
+import { Skeleton } from "@mui/material";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import Link from "next/link";
@@ -22,29 +23,33 @@ import { useHomeLoading } from "@/context/HomeLoadingContext";
 export default function FeaturedProducts() {
   const [productList, setProductList] = useState([]);
   const [wishlistMap, setWishlistMap] = useState({});
+  const [loading, setLoading] = useState(true);
   const scrollRef = useRef(null);
-const { markReady } = useHomeLoading();
+  const { markReady } = useHomeLoading();
   const limit = 20; // slider ke liye ek hi baar zyada products le lo
 
-const fetchFeaturedProducts = async () => {
-  try {
-    const res = await fetch(
-      `${API_URL}/products/featured?page=1&limit=${limit}`
-    );
+  const fetchFeaturedProducts = async () => {
+    try {
+      setLoading(true);
 
-    const data = await res.json();
+      const res = await fetch(
+        `${API_URL}/products/featured?page=1&limit=${limit}`,
+      );
 
-    if (Array.isArray(data)) {
-      setProductList(data);
-    } else {
-      setProductList(data.products || []);
+      const data = await res.json();
+
+      if (Array.isArray(data)) {
+        setProductList(data);
+      } else {
+        setProductList(data.products || []);
+      }
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+      markReady();
     }
-  } catch (err) {
-    console.log(err);
-  } finally {
-    markReady();   // ✅ यह जरूरी है
-  }
-};
+  };
 
   useEffect(() => {
     fetchFeaturedProducts();
@@ -63,14 +68,14 @@ const fetchFeaturedProducts = async () => {
       });
 
       const data = await res.json();
-console.log("Wishlist Response:", data);
+      console.log("Wishlist Response:", data);
       const map = {};
 
-(data || []).forEach((item) => {
-  map[item.productId._id] = item._id;
-});
+      (data || []).forEach((item) => {
+        map[item.productId._id] = item._id;
+      });
 
-setWishlistMap(map);
+      setWishlistMap(map);
     } catch (err) {
       console.log(err);
     }
@@ -84,7 +89,51 @@ setWishlistMap(map);
       behavior: "smooth",
     });
   };
+  const FeaturedProductsSkeleton = () => (
+    <Box
+      sx={{
+        bgcolor: "#fff",
+        borderRadius: 3,
+        p: { xs: 1.5, md: 2 },
+        boxShadow: "0 6px 20px rgba(0,0,0,0.04)",
+      }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          gap: 2,
+          overflow: "hidden",
+        }}
+      >
+        {Array.from({ length: 5 }).map((_, index) => (
+          <Paper
+            key={index}
+            elevation={0}
+            sx={{
+              flex: "0 0 auto",
+              width: {
+                xs: 160,
+                sm: 200,
+                md: 240,
+                lg: 260,
+              },
+              borderRadius: 3,
+              overflow: "hidden",
+              border: "1px solid #eee",
+            }}
+          >
+            <Skeleton variant="rectangular" height={320} />
 
+            <Box p={2}>
+              <Skeleton width="80%" height={24} />
+              <Skeleton width="55%" />
+              <Skeleton width="40%" height={28} />
+            </Box>
+          </Paper>
+        ))}
+      </Box>
+    </Box>
+  );
   return (
     <Box
       sx={{
@@ -134,7 +183,7 @@ setWishlistMap(map);
                 sm: 1,
                 md: 2,
               },
-              mx:1,
+              mx: 1,
               color: "black",
               textTransform: "none",
               fontSize: {
@@ -154,7 +203,9 @@ setWishlistMap(map);
           </Button>
         </Stack>
 
-        {productList.length > 0 ? (
+        {loading ? (
+          <FeaturedProductsSkeleton />
+        ) : productList.length > 0 ? (
           <Box
             sx={{
               position: "relative",

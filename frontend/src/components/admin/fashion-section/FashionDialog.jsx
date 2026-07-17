@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
+import { toast } from "react-toastify";
 import {
   Dialog,
   DialogTitle,
@@ -17,10 +17,10 @@ import {
   MenuItem,
   Box,
 } from "@mui/material";
-
+import DeleteIcon from "@mui/icons-material/Delete";
 import {
   createFashionSection,
-  updateFashionSection,
+  updateFashionSection,deleteFashionSection
 } from "@/services/fashionSection";
 
 export default function FashionFormDialog({
@@ -30,7 +30,7 @@ export default function FashionFormDialog({
   refresh,
 }) {
   const [loading, setLoading] = useState(false);
-
+const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({
     category: "",
     title: "",
@@ -168,6 +168,36 @@ export default function FashionFormDialog({
       setLoading(false);
     }
   };
+const handleDelete = async () => {
+  if (!editData?._id) return;
+
+  const confirmDelete = window.confirm(
+    "Are you sure you want to delete this fashion section?"
+  );
+
+  if (!confirmDelete) return;
+
+  try {
+    setDeleting(true);
+
+    await deleteFashionSection(editData._id);
+
+    toast.success("Fashion section deleted successfully");
+
+    refresh();
+    setOpen(false);
+    resetForm();
+
+  } catch (error) {
+    console.log(error);
+
+    toast.error(
+      error.response?.data?.message || "Delete failed"
+    );
+  } finally {
+    setDeleting(false);
+  }
+};
 
   return (
     <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="md">
@@ -365,6 +395,18 @@ export default function FashionFormDialog({
       </DialogContent>
 
       <DialogActions sx={{ p: 2 }}>
+        {editData && (
+  <Button
+    color="error"
+    variant="outlined"
+    startIcon={<DeleteIcon />}
+    onClick={handleDelete}
+    disabled={deleting}
+    sx={{ mr: "auto" }}
+  >
+    {deleting ? "Deleting..." : "Delete"}
+  </Button>
+)}
         <Button
           onClick={() => {
             setOpen(false);

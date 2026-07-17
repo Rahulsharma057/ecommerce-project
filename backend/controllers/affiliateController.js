@@ -1,184 +1,89 @@
 const Affiliate = require("../models/Affiliate");
 
-
-
 // CREATE APPLICATION
 
-exports.createAffiliate = async(req,res)=>{
+exports.createAffiliate = async (req, res) => {
+  try {
+    const affiliate = await Affiliate.create(req.body);
 
-try{
+    res.status(201).json({
+      success: true,
 
+      message: "Affiliate application submitted",
 
-const affiliate = await Affiliate.create(
-req.body
-);
+      data: affiliate,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
 
-
-res.status(201).json({
-
-success:true,
-
-message:"Affiliate application submitted",
-
-data:affiliate
-
-});
-
-
-}
-catch(error){
-
-
-res.status(500).json({
-
-success:false,
-
-message:error.message
-
-});
-
-
-}
-
-
+      message: error.message,
+    });
+  }
 };
-
-
-
-
-
 
 // ADMIN GET ALL
 
-exports.getAffiliate = async(req,res)=>{
+exports.getAffiliate = async (req, res) => {
+  try {
+    const data = await Affiliate.find().sort({
+      createdAt: -1,
+    });
 
-try{
+    res.json({
+      success: true,
 
-
-const data = await Affiliate
-.find()
-.sort({
-createdAt:-1
-});
-
-
-res.json({
-
-success:true,
-
-data
-
-});
-
-
-}
-catch(error){
-
-
-res.status(500).json({
-
-message:error.message
-
-});
-
-
-}
-
-
+      data,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
 };
-
-
-
-
-
 
 // DELETE
 
-exports.deleteAffiliate = async(req,res)=>{
+exports.deleteAffiliate = async (req, res) => {
+  try {
+    await Affiliate.findByIdAndDelete(req.params.id);
 
+    res.json({
+      success: true,
 
-try{
-
-
-await Affiliate.findByIdAndDelete(
-req.params.id
-);
-
-
-
-res.json({
-
-success:true,
-
-message:"Deleted successfully"
-
-});
-
-
-}
-catch(error){
-
-
-res.status(500).json({
-
-message:error.message
-
-});
-
-
-}
-
-
+      message: "Deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
 };
-
-
-
-
 
 // UPDATE STATUS
 
-exports.updateStatus = async(req,res)=>{
+exports.updateStatus = async (req, res) => {
+  try {
+    const data = await Affiliate.findByIdAndUpdate(
+      req.params.id,
 
+      {
+        status: req.body.status,
+      },
 
-try{
+      {
+        new: true,
+      },
+    );
 
+    res.json({
+      success: true,
 
-const data =
-await Affiliate.findByIdAndUpdate(
-
-req.params.id,
-
-{
-status:req.body.status
-},
-
-{
-new:true
-}
-
-);
-
-
-
-res.json({
-
-success:true,
-
-data
-
-});
-
-
-}
-catch(error){
-
-res.status(500).json({
-
-message:error.message
-
-});
-
-}
-
-
+      data,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
 };

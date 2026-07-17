@@ -9,16 +9,35 @@ import { Typography } from "@mui/material";
 import { API_URL } from "@/lib/api";
 
 // Loads the Razorpay checkout.js script once and reuses it on repeat clicks.
-function loadRazorpayScript() {
+let razorpayPromise;
 
-  return new Promise((resolve) => {
-    if (window.Razorpay) return resolve(true);
+function loadRazorpayScript() {
+  if (window.Razorpay) {
+    return Promise.resolve(true);
+  }
+
+  if (razorpayPromise) {
+    return razorpayPromise;
+  }
+
+  razorpayPromise = new Promise((resolve) => {
     const script = document.createElement("script");
+
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
+
+    script.onload = () => {
+      resolve(true);
+    };
+
+    script.onerror = () => {
+      razorpayPromise = null;
+      resolve(false);
+    };
+
     document.body.appendChild(script);
   });
+
+  return razorpayPromise;
 }
 
 // Drop this in on the checkout page in place of / alongside the COD button.

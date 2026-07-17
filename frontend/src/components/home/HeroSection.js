@@ -5,14 +5,12 @@ import ArrowOutwardIcon from "@mui/icons-material/ArrowOutward";
 import CheckIcon from "@mui/icons-material/Check";
 import StarIcon from "@mui/icons-material/Star";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
-import { useHomeLoading } from "@/context/HomeLoadingContext";
+import {useHomeLoading } from "@/context/HomeLoadingContext";
 import Link from "next/link";
 import Image from "next/image";
 export default function HeroSection() {
    const { markReady } = useHomeLoading();
-   useEffect(() => {
- markReady();
-  }, []);
+
   return (
     <Box
       sx={{
@@ -235,6 +233,7 @@ export default function HeroSection() {
                 priority
                 style={{ objectFit: "cover" }}
                 sizes="(max-width: 900px) 100vw, 45vw"
+                  onLoad={markReady}
               />
           
             </Box>

@@ -24,15 +24,25 @@ const fashionSectionSchema = new mongoose.Schema(
       default: "",
     },
 
-    image: {
-      type: String,
-      default: "",
-    },
+ image: {
+  type: String,
+  default: "",
+},
 
-    video: {
-      type: String,
-      default: "",
-    },
+imagePublicId: {
+  type: String,
+  default: "",
+},
+
+video: {
+  type: String,
+  default: "",
+},
+
+videoPublicId: {
+  type: String,
+  default: "",
+},
 
     buttonText: {
       type: String,
