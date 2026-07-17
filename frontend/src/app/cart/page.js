@@ -395,6 +395,10 @@ export default function CartPage() {
       }
 
       await fetchCart();
+      // Header cart badge refresh — removing a line changes the count,
+      // and this happens entirely within CartPage, so nothing else was
+      // telling the Navbar about it.
+      window.dispatchEvent(new Event("cart-update"));
       toast.success("Item removed from cart.");
     } catch (err) {
       console.error("Remove error:", err);
@@ -425,6 +429,7 @@ export default function CartPage() {
       }
 
       await fetchCart();
+      window.dispatchEvent(new Event("cart-update"));
     } catch (err) {
       console.error("Increase error:", err);
       toast.error("Could not update quantity. Please try again.");
@@ -454,6 +459,9 @@ export default function CartPage() {
       }
 
       await fetchCart();
+      // Decreasing past 1 deletes the cart line on the backend, so the
+      // count can change here too — keep the Navbar badge in sync.
+      window.dispatchEvent(new Event("cart-update"));
     } catch (err) {
       console.error("Decrease error:", err);
       toast.error("Could not update quantity. Please try again.");

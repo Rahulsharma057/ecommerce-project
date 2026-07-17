@@ -77,6 +77,9 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
           return updated;
         });
 
+        // Header wishlist badge refresh
+        window.dispatchEvent(new Event("wishlist-update"));
+
         toast.success("Removed from wishlist ");
       }
 
@@ -104,6 +107,9 @@ export default function ProductCard({ product, wishlistMap, setWishlistMap }) {
           ...prev,
           [product._id]: data._id,
         }));
+
+        // Header wishlist badge refresh
+        window.dispatchEvent(new Event("wishlist-update"));
 
         toast.success("Added to wishlist ");
       }

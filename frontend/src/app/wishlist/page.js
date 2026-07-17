@@ -72,6 +72,9 @@ export default function WishlistPage() {
         return;
       }
 
+      // Header wishlist badge refresh
+      window.dispatchEvent(new Event("wishlist-update"));
+
       if (showToast) {
         toast.success("Removed from wishlist ");
       }
@@ -101,6 +104,11 @@ export default function WishlistPage() {
         toast.error(data.message || "Failed to add to cart");
         return;
       }
+
+      // Header cart badge refresh — this call adds a real cart line but
+      // previously never told the Navbar, so the cart count silently
+      // stayed stale until the next full page load.
+      window.dispatchEvent(new Event("cart-update"));
 
       await removeItem(wishlistId, false);
 

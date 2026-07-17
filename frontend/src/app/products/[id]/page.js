@@ -366,6 +366,10 @@ export default function ProductDetailsPage() {
         delete updated[product._id];
         return updated;
       });
+
+      // Header wishlist badge refresh
+      window.dispatchEvent(new Event("wishlist-update"));
+
       toast.success("Product removed from wishlist.");
     } else {
       const res = await fetch(`${API_URL}/wishlist/add`, {
@@ -385,6 +389,10 @@ export default function ProductDetailsPage() {
         ...prev,
         [product._id]: data._id,
       }));
+
+      // Header wishlist badge refresh
+      window.dispatchEvent(new Event("wishlist-update"));
+
       toast.success("Product added to wishlist.");
     }
   };

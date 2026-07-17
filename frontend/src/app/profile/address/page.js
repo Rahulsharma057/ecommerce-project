@@ -42,22 +42,28 @@ export default function AddressPage() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
-const [deleteDialog, setDeleteDialog] = useState({
-  open: false,
-  id: null,
-});
+  const [deleteDialog, setDeleteDialog] = useState({
+    open: false,
+    id: null,
+  });
   const [form, setForm] = useState({
     fullName: "",
     phone: "",
     pincode: "",
     state: "",
     city: "",
+    country: "India",
     house: "",
     area: "",
     landmark: "",
     type: "Home",
     isDefault: false,
   });
+
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+const [locating, setLocating] = useState(false);
+
+
   const resetForm = () => {
     setForm({
       fullName: "",
@@ -65,6 +71,7 @@ const [deleteDialog, setDeleteDialog] = useState({
       pincode: "",
       state: "",
       city: "",
+      country: "India",
       house: "",
       area: "",
       landmark: "",
@@ -74,6 +81,93 @@ const [deleteDialog, setDeleteDialog] = useState({
 
     setEditingId(null);
   };
+
+
+
+
+useEffect(() => {
+  const pin = form.pincode.trim();
+  if (!/^\d{6}$/.test(pin)) return;
+
+  let ignore = false;
+  setPincodeLoading(true);
+
+  fetch(`https://api.postalpincode.in/pincode/${pin}`)
+    .then((res) => res.json())
+    .then((data) => {
+      if (ignore) return;
+      const result = data?.[0];
+
+      if (result?.Status === "Success" && result.PostOffice?.length > 0) {
+        const po = result.PostOffice[0];
+        setForm((prev) => ({
+          ...prev,
+          city: prev.city || po.District,
+          state: prev.state || po.State,
+          country: po.Country || "India",
+        }));
+      } else {
+        // Pincode valid format, but not found in the lookup DB —
+        // don't block the user, just let them fill city/state manually.
+        toast.info("Couldn't auto-detect this pincode — please enter City/State manually");
+      }
+    })
+    .catch(() => {
+      toast.error("Pincode lookup failed — please enter City/State manually");
+    })
+    .finally(() => {
+      if (!ignore) setPincodeLoading(false);
+    });
+
+  return () => { ignore = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [form.pincode]);
+
+
+const useCurrentLocation = () => {
+  if (!navigator.geolocation) {
+    toast.error("Geolocation is not supported by your browser");
+    return;
+  }
+
+  setLocating(true);
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const { latitude, longitude } = position.coords;
+
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+          { headers: { "Accept-Language": "en" } }
+        );
+        const data = await res.json();
+        const addr = data?.address || {};
+
+        setForm((prev) => ({
+          ...prev,
+          area: addr.suburb || addr.neighbourhood || addr.road || prev.area,
+          city: addr.city || addr.town || addr.county || prev.city,
+          state: addr.state || prev.state,
+          country: addr.country || "India",
+          pincode: addr.postcode || prev.pincode,
+        }));
+
+        toast.success("Location detected — please review the fields");
+      } catch {
+        toast.error("Could not fetch address for your location");
+      } finally {
+        setLocating(false);
+      }
+    },
+    () => {
+      toast.error("Permission denied or location unavailable");
+      setLocating(false);
+    }
+  );
+};
+
+
   const router = useRouter();
   const fetchAddresses = async () => {
     try {
@@ -104,88 +198,120 @@ const [deleteDialog, setDeleteDialog] = useState({
     });
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  setLoading(true);
-
-  try {
-    const token = localStorage.getItem("token");
-
-    const url = editingId
-      ? `${API_URL}/users/addresses/${editingId}`
-      : `${API_URL}/users/addresses`;
-
-    const method = editingId ? "PUT" : "POST";
-
-    const res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(form),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      toast.error(data.message || "Something went wrong");
-      return;
+  const validateForm = () => {
+    if (!form.fullName.trim() || form.fullName.trim().length < 2) {
+      toast.error("Enter a valid full name");
+      return false;
     }
+    if (!/^[6-9]\d{9}$/.test(form.phone.trim())) {
+      toast.error("Enter a valid 10-digit phone number");
+      return false;
+    }
+    if (!form.house.trim()) {
+      toast.error("House / Flat / Building is required");
+      return false;
+    }
+    if (!form.area.trim()) {
+      toast.error("Area / Street is required");
+      return false;
+    }
+    if (!/^\d{6}$/.test(form.pincode.trim())) {
+      toast.error("Enter a valid 6-digit pincode");
+      return false;
+    }
+    if (!form.city.trim()) {
+      toast.error("City is required");
+      return false;
+    }
+    if (!form.state.trim()) {
+      toast.error("State is required");
+      return false;
+    }
+    return true;
+  };
 
-    fetchAddresses();
-    resetForm();
-    setOpen(false);
-
-    toast.success(
-      editingId
-        ? "Address updated successfully."
-        : "Address added successfully."
-    );
-  } catch (err) {
-    console.log(err);
-    toast.error("Something went wrong.");
-  } finally {
-    setLoading(false);
-  }
-};
-
-const handleDelete = async (id) => {
-  try {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
     setLoading(true);
 
-    const token = localStorage.getItem("token");
+    try {
+      const token = localStorage.getItem("token");
 
-    const res = await fetch(`${API_URL}/users/addresses/${id}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+      const url = editingId
+        ? `${API_URL}/users/addresses/${editingId}`
+        : `${API_URL}/users/addresses`;
 
-    const data = await res.json();
+      const method = editingId ? "PUT" : "POST";
 
-    if (!res.ok) {
-      toast.error(data.message || "Failed to delete address.");
-      return;
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.message || "Something went wrong");
+        return;
+      }
+
+      fetchAddresses();
+      resetForm();
+      setOpen(false);
+
+      toast.success(
+        editingId
+          ? "Address updated successfully."
+          : "Address added successfully.",
+      );
+    } catch (err) {
+      console.log(err);
+      toast.error("Something went wrong.");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    toast.success("Address deleted successfully.");
+  const handleDelete = async (id) => {
+    try {
+      setLoading(true);
 
-    fetchAddresses();
-  } catch (err) {
-    console.log(err);
-    toast.error("Something went wrong.");
-  } finally {
-    setLoading(false);
+      const token = localStorage.getItem("token");
 
-    setDeleteDialog({
-      open: false,
-      id: null,
-    });
-  }
-};
+      const res = await fetch(`${API_URL}/users/addresses/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.message || "Failed to delete address.");
+        return;
+      }
+
+      toast.success("Address deleted successfully.");
+
+      fetchAddresses();
+    } catch (err) {
+      console.log(err);
+      toast.error("Something went wrong.");
+    } finally {
+      setLoading(false);
+
+      setDeleteDialog({
+        open: false,
+        id: null,
+      });
+    }
+  };
 
   return (
     <Container
@@ -210,7 +336,14 @@ const handleDelete = async (id) => {
         spacing={2}
         mb={4}
       >
-        <Box sx={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 1.5 }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 1.5,
+          }}
+        >
           <Button
             onClick={() => {
               if (window.history.length > 1) {
@@ -233,7 +366,14 @@ const handleDelete = async (id) => {
           </Button>
 
           <Box>
-            <Typography sx={{ fontSize: 22, fontWeight: 700, color: "#18181b", lineHeight: 1.2 }}>
+            <Typography
+              sx={{
+                fontSize: 22,
+                fontWeight: 700,
+                color: "#18181b",
+                lineHeight: 1.2,
+              }}
+            >
               My Addresses
             </Typography>
             <Typography sx={{ fontSize: 13.5, color: "#71717a", mt: 0.3 }}>
@@ -296,7 +436,11 @@ const handleDelete = async (id) => {
               <LocationOnOutlinedIcon sx={{ fontSize: 26 }} />
             </Box>
 
-            <Typography fontSize={17} fontWeight={700} sx={{ color: "#18181b" }}>
+            <Typography
+              fontSize={17}
+              fontWeight={700}
+              sx={{ color: "#18181b" }}
+            >
               No addresses added yet
             </Typography>
 
@@ -407,6 +551,27 @@ const handleDelete = async (id) => {
               />
             </Grid>
 
+            <Grid item xs={12}>
+  <Button
+    type="button"
+    variant="outlined"
+    size="small"
+    onClick={useCurrentLocation}
+    disabled={locating}
+    startIcon={<LocationOnOutlinedIcon fontSize="small" />}
+    sx={{
+      borderRadius: 2,
+      textTransform: "none",
+      fontWeight: 600,
+      borderColor: "#e4e4e7",
+      color: "#18181b",
+      "&:hover": { borderColor: "#18181b", bgcolor: "#f4f4f5" },
+    }}
+  >
+    {locating ? "Detecting location..." : "Use my current location"}
+  </Button>
+</Grid>
+
             {/* HOUSE */}
             <Grid item xs={12}>
               <TextField
@@ -457,16 +622,27 @@ const handleDelete = async (id) => {
 
             {/* PINCODE */}
             <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Pincode"
-                name="pincode"
-                value={form.pincode}
-                onChange={handleChange}
-                sx={inputSx}
-              />
+           <TextField
+  fullWidth
+  label="Pincode"
+  name="pincode"
+  value={form.pincode}
+  onChange={handleChange}
+  helperText={pincodeLoading ? "Fetching city/state..." : ""}
+  sx={inputSx}
+/>
             </Grid>
 
+<Grid item xs={12} md={4}>
+  <TextField
+    fullWidth
+    label="Country"
+    name="country"
+    value={form.country}
+    onChange={handleChange}
+    sx={inputSx}
+  />
+</Grid>
             {/* LANDMARK */}
             <Grid item xs={12}>
               <TextField
@@ -520,36 +696,73 @@ const handleDelete = async (id) => {
                   />
                 }
                 label="Set as default address"
-                sx={{ "& .MuiFormControlLabel-label": { fontSize: 14, color: "#27272a" } }}
+                sx={{
+                  "& .MuiFormControlLabel-label": {
+                    fontSize: 14,
+                    color: "#27272a",
+                  },
+                }}
               />
             </Grid>
 
             {/* BUTTON */}
-            <Grid item xs={12}>
-              <Button
-                type="submit"
-                variant="contained"
-                fullWidth
-                size="large"
-                disabled={loading}
-                sx={{
-                  py: 1.5,
-                  borderRadius: 2,
-                  fontWeight: 600,
-                  mt: 1,
-                  bgcolor: "#18181b",
-                  textTransform: "none",
-                  boxShadow: "none",
-                  "&:hover": { bgcolor: "#27272a", boxShadow: "none" },
-                }}
-              >
-                {loading
-                  ? "Please wait..."
-                  : editingId
-                  ? "Update Address"
-                  : "Save Address"}
-              </Button>
-            </Grid>
+       {/* BUTTON */}
+<Grid item xs={12}>
+  <Stack direction="row" spacing={2}>
+    <Button
+      type="button"
+      fullWidth
+      size="large"
+      variant="outlined"
+      onClick={() => {
+        setOpen(false);
+        resetForm();
+      }}
+      sx={{
+        py: 1.5,
+        borderRadius: 2,
+        fontWeight: 600,
+        mt: 1,
+        textTransform: "none",
+        color: "#18181b",
+        borderColor: "#e4e4e7",
+        "&:hover": {
+          borderColor: "#18181b",
+          bgcolor: "#f4f4f5",
+        },
+      }}
+    >
+      Cancel
+    </Button>
+
+    <Button
+      type="submit"
+      variant="contained"
+      fullWidth
+      size="large"
+      disabled={loading}
+      sx={{
+        py: 1.5,
+        borderRadius: 2,
+        fontWeight: 600,
+        mt: 1,
+        bgcolor: "#18181b",
+        textTransform: "none",
+        boxShadow: "none",
+        "&:hover": {
+          bgcolor: "#27272a",
+          boxShadow: "none",
+        },
+      }}
+    >
+      {loading
+        ? "Please wait..."
+        : editingId
+        ? "Update Address"
+        : "Save Address"}
+    </Button>
+  </Stack>
+</Grid>
           </Grid>
         </Box>
       </Dialog>

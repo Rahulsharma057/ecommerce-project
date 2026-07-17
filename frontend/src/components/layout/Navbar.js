@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   AppBar,
@@ -42,6 +42,7 @@ import SearchBar from "./SearchBar";
 import Tooltip from "@mui/material/Tooltip";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
+import { API_URL } from "@/lib/api";
 
 const NAV_LINKS = [
   { label: "Home", href: "/", icon: <HomeOutlinedIcon fontSize="small" /> },
@@ -96,10 +97,16 @@ export default function Navbar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const router = useRouter();
 
-  // 🔐 crash-safe selectors: fall back to [] if slice/items is undefined
-  // (e.g. store not rehydrated yet), so `.length` never throws.
+  // Redux is kept around in case other parts of the app read from it, but
+  // the NAVBAR BADGES no longer trust it — cart/wishlist mutations happen
+  // via direct API calls (ProductCard, CartPage, WishlistPage) and don't
+  // reliably dispatch back into the store, so the badge count would go
+  // stale. Instead we fetch the real counts straight from the backend.
   const cartItems = useSelector((state) => state.cart?.items) || [];
   const wishlistItems = useSelector((state) => state.wishlist?.items) || [];
+
+  const [cartCount, setCartCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
 
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState(null);
@@ -114,6 +121,41 @@ export default function Navbar() {
     setMounted(true);
   }, []);
 
+  // Single source of truth for the badge numbers — always asks the backend
+  // directly instead of relying on whatever Redux happens to have.
+  const fetchCounts = useCallback(async () => {
+    const token = safeGetItem("token");
+    if (!token) {
+      setCartCount(0);
+      setWishlistCount(0);
+      return;
+    }
+
+    try {
+      const [cartRes, wishlistRes] = await Promise.all([
+        fetch(`${API_URL}/cart`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/wishlist`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      const cartData = await cartRes.json().catch(() => []);
+      const wishlistData = await wishlistRes.json().catch(() => []);
+
+      // Badge shows total QUANTITY across cart lines (matches CartPage's
+      // own totalItems calc), not just the number of distinct lines —
+      // 1 product with quantity 5 should read as "5", not "1".
+      const cartArray = Array.isArray(cartData) ? cartData : [];
+      const totalQuantity = cartArray.reduce(
+        (sum, item) => sum + (item.quantity || 0),
+        0,
+      );
+
+      setCartCount(totalQuantity);
+      setWishlistCount(Array.isArray(wishlistData) ? wishlistData.length : 0);
+    } catch (err) {
+      console.error("Failed to fetch cart/wishlist counts:", err);
+    }
+  }, []);
+
   useEffect(() => {
     const syncUser = () => {
       const storedUser = safeGetItem("user");
@@ -121,17 +163,30 @@ export default function Navbar() {
     };
 
     syncUser();
+    fetchCounts();
+
+    // "cart-update" is the event name already used across the app
+    // (ProductCard, ProductDetailsPage both dispatch it after add-to-cart).
+    // "wishlist-update" is new — dispatched after any wishlist add/remove.
+    const handleUserChanged = () => {
+      syncUser();
+      fetchCounts();
+    };
 
     window.addEventListener("storage", syncUser);
     window.addEventListener("focus", syncUser);
-    window.addEventListener("userChanged", syncUser);
+    window.addEventListener("userChanged", handleUserChanged);
+    window.addEventListener("cart-update", fetchCounts);
+    window.addEventListener("wishlist-update", fetchCounts);
 
     return () => {
       window.removeEventListener("storage", syncUser);
       window.removeEventListener("focus", syncUser);
-      window.removeEventListener("userChanged", syncUser);
+      window.removeEventListener("userChanged", handleUserChanged);
+      window.removeEventListener("cart-update", fetchCounts);
+      window.removeEventListener("wishlist-update", fetchCounts);
     };
-  }, []);
+  }, [fetchCounts]);
 
   const handleLogout = () => {
     try {
@@ -142,6 +197,8 @@ export default function Navbar() {
     }
     window.dispatchEvent(new Event("userChanged"));
     setUser(null);
+    setCartCount(0);
+    setWishlistCount(0);
     setLogoutOpen(false);
     setDrawerOpen(false);
     toast.success("Logged out successfully !! ");
@@ -169,7 +226,7 @@ export default function Navbar() {
         size="small"
         aria-label="Wishlist"
       >
-        <Badge badgeContent={wishlistItems.length} color="error">
+        <Badge badgeContent={wishlistCount} color="error">
           <FavoriteBorderOutlinedIcon sx={{color:"rgba(36, 36, 36, 0.92)"}} fontSize="small" />
         </Badge>
       </IconButton>
@@ -193,7 +250,7 @@ export default function Navbar() {
       </IconButton> */}
 
       <IconButton component={Link} href="/cart" size="small" aria-label="Cart">
-        <Badge badgeContent={cartItems.length} color="error">
+        <Badge badgeContent={cartCount} color="error">
           <ShoppingCartOutlinedIcon  sx={{color:"rgba(42, 42, 42, 0.92)"}}  fontSize="small" />
         </Badge>
       </IconButton>
@@ -668,7 +725,7 @@ export default function Navbar() {
               sx={{ borderRadius: 2, mb: 0.25, py: 1, px: 1.5 }}
             >
               <ListItemIcon sx={{ minWidth: 34, color: "text.secondary" }}>
-                <Badge badgeContent={wishlistItems.length} color="error">
+                <Badge badgeContent={wishlistCount} color="error">
                   <FavoriteBorderOutlinedIcon fontSize="small" />
                 </Badge>
               </ListItemIcon>
@@ -685,7 +742,7 @@ export default function Navbar() {
               sx={{ borderRadius: 2, mb: 0.25, py: 1, px: 1.5 }}
             >
               <ListItemIcon sx={{ minWidth: 34, color: "text.secondary" }}>
-                <Badge badgeContent={cartItems.length} color="error">
+                <Badge badgeContent={cartCount} color="error">
                   <ShoppingCartOutlinedIcon fontSize="small" />
                 </Badge>
               </ListItemIcon>
