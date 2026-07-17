@@ -12,8 +12,11 @@ router.get("/", productController.getProducts);
 router.get("/categories/options", productController.getCategoryOptions);
 router.get("/featured", productController.getFeaturedProducts);
 router.get("/new-arrivals", productController.getNewArrivals);
+// products routes file me, /:id route se PEHLE add karo (warna "/search" ko id samajh lega)
+router.get("/search/suggestions", productController.getSearchSuggestions);
 router.get("/:id/related", productController.getRelatedProducts);
 router.get("/:id", productController.getSingleProduct);
+
 
 // ================= REVIEWS (logged-in users) =================
 router.post("/:id/review", authMiddleware, productController.createProductReview);

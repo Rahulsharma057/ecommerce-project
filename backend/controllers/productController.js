@@ -78,6 +78,12 @@ function parseVariants(raw) {
   }
 }
 
+// Escapes regex special characters in user-typed search text so a query
+// like "M+size" or "50% off" doesn't crash/throw as an invalid regex.
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // ── ADD PRODUCT ──
 exports.addProduct = async (req, res) => {
   try {
@@ -151,20 +157,25 @@ exports.getProducts = async (req, res) => {
     let query = {};
 
     if (search) {
-      const words = search.trim().split(" ").filter(Boolean);
-      query.$and = words.map((word) => ({
-        $or: [
-          { name: { $regex: word, $options: "i" } },
-          { category: { $regex: word, $options: "i" } },
-          { subCategory: { $regex: word, $options: "i" } },
-          { description: { $regex: word, $options: "i" } },
-          { tags: { $regex: word, $options: "i" } },
-        ],
-      }));
+      const words = search.trim().split(/\s+/).filter(Boolean);
+      query.$and = words.map((word) => {
+        const safe = escapeRegex(word);
+        return {
+          $or: [
+            { name: { $regex: safe, $options: "i" } },
+            { brand: { $regex: safe, $options: "i" } },
+            { category: { $regex: safe, $options: "i" } },
+            { subCategory: { $regex: safe, $options: "i" } },
+            { description: { $regex: safe, $options: "i" } },
+            { tags: { $regex: safe, $options: "i" } },
+            { searchKeywords: { $regex: safe, $options: "i" } },
+          ],
+        };
+      });
     }
 
-    if (category) query.category = { $regex: category, $options: "i" };
-    if (subCategory) query.subCategory = { $regex: subCategory, $options: "i" };
+    if (category) query.category = { $regex: escapeRegex(category), $options: "i" };
+    if (subCategory) query.subCategory = { $regex: escapeRegex(subCategory), $options: "i" };
 
     if (type === "new-arrivals") query.isNewArrival = true;
     if (type === "sale") query.isSale = true;
@@ -205,6 +216,61 @@ switch (sort) {
     res.json({ products, totalPages: Math.ceil(total / limit), total, currentPage: page });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+// ── SEARCH SUGGESTIONS (autocomplete dropdown) ──
+// Lightweight, fast endpoint hit on every keystroke (debounced on the
+// frontend) — returns a handful of matching products + matching category
+// names, NOT a full paginated search. Full results still go through
+// getProducts (?search=...) when the person hits Enter / "View all".
+exports.getSearchSuggestions = async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+
+    if (!q) {
+      return res.json({ products: [], categories: [], brands: [] });
+    }
+
+    const safe = escapeRegex(q);
+    const regex = { $regex: safe, $options: "i" };
+
+    // Products whose name/brand/category/tags match — name matches ranked
+    // first so typing "shirt" surfaces shirts before something that just
+    // happens to be tagged "shirt".
+    const [nameMatches, otherMatches] = await Promise.all([
+      Product.find({ status: "Active", name: regex })
+        .select("name price originalPrice images frontImage category subCategory slug brand")
+        .limit(6),
+      Product.find({
+        status: "Active",
+        name: { $not: regex },
+        $or: [
+          { brand: regex },
+          { category: regex },
+          { subCategory: regex },
+          { tags: regex },
+          { searchKeywords: regex },
+        ],
+      })
+        .select("name price originalPrice images frontImage category subCategory slug brand")
+        .limit(4),
+    ]);
+
+    const products = [...nameMatches, ...otherMatches].slice(0, 6);
+
+    const [categories, brands] = await Promise.all([
+      Product.distinct("category", { status: "Active", category: regex }),
+      Product.distinct("brand", { status: "Active", brand: regex }),
+    ]);
+
+    res.json({
+      products,
+      categories: categories.filter(Boolean).slice(0, 4),
+      brands: brands.filter(Boolean).slice(0, 3),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 

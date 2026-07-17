@@ -250,10 +250,10 @@ export default function ProductsPageContent() {
   );
 
   return (
-    <Box sx={{ bgcolor: "#f8f9fb", minHeight: "100vh", py: { xs: 3, md: 2 } }}>
+    <Box sx={{ bgcolor: "#f8f9fb", minHeight: "100vh", py: { xs: 1, md: 2 } }}>
       <Container maxWidth="xl">
         {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 2 }}>
+         <Breadcrumbs sx={{ mb: 2 }}>
           <Link
             href="/"
             style={{ textDecoration: "none", color: "#666", fontSize: 13 }}
@@ -261,7 +261,7 @@ export default function ProductsPageContent() {
             Home
           </Link>
           <Typography sx={{ fontSize: 13 }}>{pageTitle}</Typography>
-        </Breadcrumbs>
+        </Breadcrumbs> 
 
         {/* Header */}
         <Stack
@@ -270,28 +270,17 @@ export default function ProductsPageContent() {
           justifyContent="space-between"
           flexWrap="wrap"
           gap={1}
-          mb={3}
+          mb={2}
         >
-          <Box>
+          <Box sx={{width:"100%", display:"flex",justifyContent:"space-between",flexDirection:"row",alignItems:"center"}}>
             <Typography
               variant="h4"
               fontWeight={600}
-              sx={{ fontSize: { xs: "1.5rem", md: "1.8rem" } }}
+              sx={{ fontSize: { xs: "1rem", md: "1.2rem" } }}
             >
               {pageTitle}
             </Typography>
-            <Typography color="text.secondary" mt={0.5} sx={{ fontSize: 14 }}>
-              Showing <strong> {filteredProducts.length} </strong> results
-              {search && (
-                <span>
-                  {" "}
-                  for "<b>{search}</b>"
-                </span>
-              )}
-            </Typography>
-          </Box>
-
-          {/* Mobile filter button */}
+             {/* Mobile filter button */}
           <Button
             startIcon={<TuneIcon sx={{ fontSize: 16 }} />}
             onClick={() => setDrawerOpen(true)}
@@ -306,8 +295,20 @@ export default function ProductsPageContent() {
               "&:hover": { bgcolor: "grey.100" },
             }}
           >
-            Filters & Sort
+          {" "}
           </Button>
+        {/*    <Typography color="text.secondary" mt={0.5} sx={{ fontSize: 14 }}>
+              Showing <strong> {filteredProducts.length} </strong> results
+              {search && (
+                <span>
+                  {" "}
+                  for "<b>{search}</b>"
+                </span>
+              )}
+            </Typography>  */}
+          </Box>
+
+         
         </Stack>
 
         {/* Desktop filter bar — ProductFilters already renders its own
@@ -440,7 +441,7 @@ export default function ProductsPageContent() {
 
         {FilterControls}
 
-        <Box mt={3}>
+        <Box mt={3}>-
           <Button
             fullWidth
             variant="contained"
